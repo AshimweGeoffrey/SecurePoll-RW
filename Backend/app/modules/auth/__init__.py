@@ -1,4 +1,5 @@
 """Auth module - JWT + TOTP 2FA, user management, roles, sessions."""
+from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session

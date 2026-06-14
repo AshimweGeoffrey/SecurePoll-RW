@@ -1,88 +1,68 @@
-"""Configuration for pytest and test utilities."""
+"""Pytest configuration and shared fixtures."""
 import pytest
 from app.core.db import engine, SessionLocal
 from app.db.models.base import Base
-from sqlalchemy.pool import StaticPool
-from app.core.config import settings
-
-# Use in-memory SQLite for tests (optional override)
-SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
+from app.core.enums import Province
 
 
 @pytest.fixture(scope="function")
 def db():
-    """Create a fresh test database for each test."""
-    # Create tables
+    """Fresh DB session per test; rolls back all changes after each test."""
     Base.metadata.create_all(bind=engine)
-    
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-        Base.metadata.drop_all(bind=engine)
+    connection = engine.connect()
+    transaction = connection.begin()
+
+    from sqlalchemy.orm import Session
+    session = Session(bind=connection)
+
+    yield session
+
+    session.close()
+    transaction.rollback()
+    connection.close()
 
 
 @pytest.fixture
 def test_user(db):
-    """Create a test admin user."""
+    """Admin user fixture."""
     from app.db.models.people import Role, AdminUser
     from app.core.security import hash_password
     from app.core.enums import UserStatus
-    
-    # Create role
-    role = Role(
-        id="test_role",
-        name="Test Role",
-        permissions=["verify", "audit"],
-    )
-    db.add(role)
-    db.commit()
-    
-    # Create user
+
+    role = db.merge(Role(id="super", name="Super Admin",
+                         permissions=["registry", "verify", "fraud", "audit", "users", "keys"]))
+    db.flush()
+
     user = AdminUser(
-        full_name="Test User",
+        full_name="Test Admin",
         email="test@securepoll.rw",
         password_hash=hash_password("TestPassword123!"),
-        role_id="test_role",
+        role_id="super",
         status=UserStatus.active,
     )
     db.add(user)
     db.commit()
-    
     return user
 
 
 @pytest.fixture
 def test_voter(db, test_user):
-    """Create a test voter."""
+    """Voter with geography."""
     from app.db.models.geography import District, PollingStation
     from app.db.models.voter import Voter
     from app.core.enums import Sex, VoterStatus
     from datetime import date
-    import uuid
-    
-    # Create district
-    district = District(
-        code="TEST-DIS",
-        name="Test District",
-        province="Kigali City",
-    )
+
+    district = District(code="TEST-D1", name="Test District", province=Province.kigali)
     db.add(district)
-    db.commit()
-    
-    # Create polling station
-    station = PollingStation(
-        code="TEST-PS",
-        name="Test Polling Station",
-        district_id=district.id,
-    )
+    db.flush()
+
+    station = PollingStation(code="TEST-PS1", name="Test Station", district_id=district.id)
     db.add(station)
-    db.commit()
-    
-    # Create voter
+    db.flush()
+
     voter = Voter(
-        voter_token=f"RW-TEST-{uuid.uuid4().hex[:8].upper()}",
+        voter_token="RW-TEST-0001-ABCD",
         registration_ref="#TEST001",
         national_id="1234567890123456",
         first_name="John",
@@ -95,5 +75,4 @@ def test_voter(db, test_user):
     )
     db.add(voter)
     db.commit()
-    
     return voter

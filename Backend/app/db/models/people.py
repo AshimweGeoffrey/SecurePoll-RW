@@ -1,4 +1,5 @@
 """People models: Field officers, admin users, roles, sessions."""
+from typing import Optional, List
 from datetime import datetime
 from sqlalchemy import String, Boolean, DateTime, ForeignKey, Enum, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -8,29 +9,26 @@ import uuid
 
 
 class FieldOfficer(Base, TimestampMixin):
-    """Election field officer."""
     __tablename__ = "field_officers"
-    
-    id = uuid_pk()
+
+    id: Mapped[uuid.UUID] = uuid_pk()
     name: Mapped[str] = mapped_column(String)
-    team: Mapped[str | None] = mapped_column(String)
-    assigned_district_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("districts.id"))
+    team: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    assigned_district_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("districts.id"), nullable=True)
 
 
 class Role(Base, TimestampMixin):
-    """Administrative role with permissions."""
     __tablename__ = "roles"
-    
+
     id: Mapped[str] = mapped_column(String, primary_key=True)
     name: Mapped[str] = mapped_column(String)
-    permissions: Mapped[list[str]] = mapped_column(JSON, default=list)
+    permissions: Mapped[List[str]] = mapped_column(JSON, default=list)
 
 
 class AdminUser(Base, TimestampMixin):
-    """Administrative system user."""
     __tablename__ = "admin_users"
-    
-    id = uuid_pk()
+
+    id: Mapped[uuid.UUID] = uuid_pk()
     full_name: Mapped[str] = mapped_column(String)
     email: Mapped[str] = mapped_column(String, unique=True)
     password_hash: Mapped[str] = mapped_column(String)
@@ -38,23 +36,22 @@ class AdminUser(Base, TimestampMixin):
     district_scope: Mapped[str] = mapped_column(String, default="National")
     status: Mapped[UserStatus] = mapped_column(Enum(UserStatus), default=UserStatus.invitation_pending)
     mfa_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
-    totp_secret: Mapped[str | None] = mapped_column(String)
-    last_active_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    
+    totp_secret: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    last_active_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
     role: Mapped["Role"] = relationship()
-    sessions: Mapped[list["Session"]] = relationship(back_populates="user")
+    sessions: Mapped[List["Session"]] = relationship(back_populates="user")
 
 
 class Session(Base, TimestampMixin):
-    """User session tracking."""
     __tablename__ = "sessions"
-    
-    id = uuid_pk()
+
+    id: Mapped[uuid.UUID] = uuid_pk()
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("admin_users.id"))
-    device: Mapped[str | None] = mapped_column(String)
-    ip_address: Mapped[str | None] = mapped_column(String)
-    location: Mapped[str | None] = mapped_column(String)
-    last_active_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    
+    device: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    ip_address: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    location: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    last_active_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
     user: Mapped["AdminUser"] = relationship(back_populates="sessions")

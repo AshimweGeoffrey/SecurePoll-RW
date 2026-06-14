@@ -1,4 +1,5 @@
 """Pydantic schemas for all models."""
+from __future__ import annotations
 from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime, date
 from uuid import UUID
@@ -329,6 +330,7 @@ class ChainVerificationResponse(BaseModel):
     breaks_found: int
     first_break_sequence: Optional[int]
     verified_at: str
+    duration_ms: Optional[int] = None
 
 
 # ============================================================================

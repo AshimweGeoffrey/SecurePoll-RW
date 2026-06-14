@@ -14,17 +14,16 @@ def _get_key() -> bytes:
     return bytes.fromhex(key_hex)
 
 
-def encrypt_template(template_blob: bytes) -> tuple[bytes, bytes]:
+def encrypt_template(template_blob: bytes) -> bytes:
     """
     Encrypt a biometric template using AES-256-GCM.
-    
-    Returns: (ciphertext, nonce)
+    Returns nonce (12 bytes) + ciphertext as a single blob.
     """
     key = _get_key()
-    nonce = os.urandom(12)  # 96-bit nonce for GCM
+    nonce = os.urandom(12)
     cipher = AESGCM(key)
     ciphertext = cipher.encrypt(nonce, template_blob, None)
-    return nonce + ciphertext, nonce
+    return nonce + ciphertext
 
 
 def decrypt_template(ciphertext: bytes, nonce: bytes) -> bytes:
