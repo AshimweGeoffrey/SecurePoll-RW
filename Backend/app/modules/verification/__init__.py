@@ -1,10 +1,11 @@
 """Verification module - 1:1 face match on election day + vote cast."""
 from fastapi import APIRouter, Depends, HTTPException, Form
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, func
 from datetime import datetime, timezone
 import base64
 import uuid
+from typing import Optional
 import numpy as np
 from app.core.db import get_db
 from app.core.audit import write_audit
@@ -22,7 +23,7 @@ import ml.inference as inference
 router = APIRouter(tags=["verification"])
 
 
-def _build_decision(face_score: float, liveness_str: str) -> tuple[VerifyResult, float, dict]:
+def _build_decision(face_score: float, liveness_str: str) -> tuple:
     """Compute result, confidence, and DecisionPanel JSON."""
     liveness_pass = liveness_str == "live"
     confidence = face_score if liveness_pass else max(0.0, face_score - 0.20)
@@ -64,16 +65,42 @@ def _build_decision(face_score: float, liveness_str: str) -> tuple[VerifyResult,
     return result, confidence, decision_json
 
 
-@router.post("/verifications", response_model=VerificationResponse)
+@router.post(
+    "/verifications",
+    response_model=VerificationResponse,
+    summary="Election-day 1:1 biometric verification",
+    description=(
+        "Core election-day endpoint — verifies a voter's identity by comparing a live face "
+        "image against the stored ArcFace template.  \n\n"
+        "**No JWT required** — this endpoint is called by field-officer devices using only "
+        "a voter token and a live camera frame.\n\n"
+        "**Decision pipeline:**\n"
+        "1. Look up voter by `voter_token`.\n"
+        "2. Check eligibility (blocked/archived voters are rejected).\n"
+        "3. Retrieve and AES-256-GCM decrypt the stored embedding.\n"
+        "4. Embed the live face with ArcFace and compute cosine similarity.\n"
+        "5. Run liveness detection — liveness failure penalises confidence by −0.20.\n"
+        "6. Apply thresholds: `approved` ≥ face_match_threshold, "
+        "`manual_review` ≥ review_floor, otherwise `rejected`.\n"
+        "7. Persist a `VerificationAttempt` row and write audit log.\n\n"
+        "Returns a `DecisionPanel` JSON with full explainability breakdown."
+    ),
+    response_description="Verification decision with confidence score, liveness result, flags, and full DecisionPanel.",
+    responses={
+        400: {
+            "description": (
+                "Invalid image encoding, no face detected, no biometric template enrolled, "
+                "or voter is ineligible (blocked/archived)."
+            )
+        },
+        404: {"description": "Voter token not found."},
+        500: {"description": "Stored template decryption error."},
+    },
+)
 async def verify_voter(
     req: VerificationRequest,
     db: Session = Depends(get_db),
 ):
-    """
-    Election-day 1:1 verification.
-    Accepts voter_token + live face image; returns DecisionPanel JSON.
-    Does not require an admin JWT (field officer endpoint).
-    """
     voter = db.execute(
         select(Voter).where(Voter.voter_token == req.voter_token)
     ).scalar_one_or_none()
@@ -150,13 +177,124 @@ async def verify_voter(
     )
 
 
-@router.post("/votes", response_model=VoteResponse)
+@router.get(
+    "/verifications",
+    summary="List verification attempts with pagination",
+    description=(
+        "Retrieve a paginated list of all verification attempts across all polling stations.  \n\n"
+        "**Query parameters:**\n"
+        "- `skip` / `limit` — pagination offset and page size (default 50).\n"
+        "- `station_id` — optional UUID to filter attempts by polling station.\n\n"
+        "Results are ordered newest-first."
+    ),
+    response_description="Paginated list of verification attempt records.",
+    responses={
+        401: {"description": "Not authenticated."},
+    },
+)
+async def list_verifications(
+    skip: int = 0,
+    limit: int = 50,
+    station_id: Optional[uuid.UUID] = None,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user),
+):
+    query = select(VerificationAttempt).order_by(VerificationAttempt.created_at.desc())
+    if station_id is not None:
+        query = query.where(VerificationAttempt.polling_station_id == station_id)
+
+    total = db.execute(
+        select(func.count(VerificationAttempt.id))
+    ).scalar() or 0
+    items = db.execute(query.offset(skip).limit(limit)).scalars().all()
+
+    return {
+        "total": total,
+        "items": [
+            {
+                "id": str(a.id),
+                "voter_id": str(a.voter_id) if a.voter_id else None,
+                "polling_station_id": str(a.polling_station_id) if a.polling_station_id else None,
+                "officer_id": str(a.officer_id) if a.officer_id else None,
+                "result": a.result.value,
+                "confidence": a.confidence,
+                "face_score": a.face_score,
+                "liveness": a.liveness.value,
+                "review_required": a.review_required,
+                "explanation": a.explanation,
+                "flags": a.flags,
+                "created_at": a.created_at.isoformat() if a.created_at else None,
+            }
+            for a in items
+        ],
+    }
+
+
+@router.get(
+    "/verifications/{attempt_id}",
+    summary="Get a single verification attempt by ID",
+    description=(
+        "Retrieve the full record of a single verification attempt by its UUID.  "
+        "Returns the complete decision breakdown including face score, confidence, liveness, "
+        "flags, and explanation."
+    ),
+    response_description="Full verification attempt record.",
+    responses={
+        401: {"description": "Not authenticated."},
+        404: {"description": "Verification attempt not found."},
+    },
+)
+async def get_verification(
+    attempt_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user),
+):
+    attempt = db.execute(
+        select(VerificationAttempt).where(VerificationAttempt.id == attempt_id)
+    ).scalar_one_or_none()
+    if not attempt:
+        raise HTTPException(status_code=404, detail="Verification attempt not found")
+
+    return {
+        "id": str(attempt.id),
+        "voter_id": str(attempt.voter_id) if attempt.voter_id else None,
+        "polling_station_id": str(attempt.polling_station_id) if attempt.polling_station_id else None,
+        "officer_id": str(attempt.officer_id) if attempt.officer_id else None,
+        "result": attempt.result.value,
+        "confidence": attempt.confidence,
+        "face_score": attempt.face_score,
+        "fingerprint_score": attempt.fingerprint_score,
+        "liveness": attempt.liveness.value,
+        "review_required": attempt.review_required,
+        "explanation": attempt.explanation,
+        "flags": attempt.flags,
+        "created_at": attempt.created_at.isoformat() if attempt.created_at else None,
+    }
+
+
+@router.post(
+    "/votes",
+    response_model=VoteResponse,
+    summary="Cast a vote — atomically marks voter as voted",
+    description=(
+        "Atomically marks a voter as `voted` using a PostgreSQL `SELECT … FOR UPDATE` row-lock.  \n\n"
+        "**Double-vote protection:**  \n"
+        "If two concurrent requests arrive for the same voter, the second blocks on the lock, "
+        "then detects `status == voted` and returns **409 Conflict** — the vote is not counted twice.  \n\n"
+        "**Preconditions:**  \n"
+        "- Voter must exist.\n"
+        "- Status must be `registered` or `verified` — `blocked`, `flagged`, and `archived` are rejected.\n"
+        "- `status == voted` returns 409 (double-vote attempt, also logged to audit).\n\n"
+        "No JWT required — field officers call this directly after verification."
+    ),
+    response_description="Vote confirmation with voter ID, new status, and timestamp.",
+    responses={
+        400: {"description": "Voter is ineligible (blocked, flagged, or archived)."},
+        404: {"description": "Voter not found."},
+        409: {"description": "Voter has already voted (double-vote attempt)."},
+    },
+)
 async def cast_vote(req: VoteRequest, db: Session = Depends(get_db)):
-    """
-    Cast vote - atomically mark voter as voted using row-level lock.
-    Row lock prevents concurrent double-vote: second concurrent call blocks,
-    then sees status==voted and returns 409.
-    """
     voter = db.execute(
         select(Voter).where(Voter.id == req.voter_id).with_for_update()
     ).scalar_one_or_none()
@@ -191,7 +329,24 @@ async def cast_vote(req: VoteRequest, db: Session = Depends(get_db)):
     )
 
 
-@router.post("/verifications/{attempt_id}:override")
+@router.post(
+    "/verifications/{attempt_id}:override",
+    summary="Override a verification decision (manual review)",
+    description=(
+        "Allows a supervisor to override the automated verification result of an attempt "
+        "that was flagged for manual review.  \n\n"
+        "**Parameters:**\n"
+        "- `override_result` — new result string (`approved`, `rejected`, or `manual_review`).\n"
+        "- `reason` — mandatory justification text written to the audit log.\n\n"
+        "Sets `review_required` to `false` after override."
+    ),
+    response_description="Confirmation of the override with the new result value.",
+    responses={
+        400: {"description": "Invalid result string."},
+        401: {"description": "Not authenticated."},
+        404: {"description": "Verification attempt not found."},
+    },
+)
 async def override_decision(
     attempt_id: uuid.UUID,
     override_result: str,
@@ -221,7 +376,19 @@ async def override_decision(
     return {"status": "overridden", "new_result": override_result}
 
 
-@router.get("/verifications/station/{station_id}/log")
+@router.get(
+    "/verifications/station/{station_id}/log",
+    summary="Get verification log for a polling station",
+    description=(
+        "Returns all verification attempts recorded at a specific polling station, "
+        "ordered newest-first, together with an aggregate summary (approved / manual_review / rejected counts).  \n\n"
+        "Useful for supervisors monitoring a station in real time."
+    ),
+    response_description="Station summary and list of verification attempts.",
+    responses={
+        401: {"description": "Not authenticated."},
+    },
+)
 async def station_log(station_id: uuid.UUID, db: Session = Depends(get_db),
                       current_user: AdminUser = Depends(get_current_user)):
     attempts = db.execute(

@@ -27,9 +27,25 @@ router = APIRouter(tags=["auth"])
 # Auth
 # ---------------------------------------------------------------------------
 
-@router.post("/auth/login", response_model=TokenResponse)
+@router.post(
+    "/auth/login",
+    response_model=TokenResponse,
+    summary="Login with email and password",
+    description=(
+        "Authenticate with `email` + `password`.  \n\n"
+        "- If the account has MFA enabled, `mfa_required: true` is returned together with a "
+        "short-lived partial token (5 min).  Pass that token to `POST /auth/mfa` with the TOTP "
+        "code to upgrade to a full session token.\n"
+        "- If MFA is not configured, a full JWT is returned immediately.\n\n"
+        "Suspended accounts receive **403 Forbidden**."
+    ),
+    response_description="JWT access token (possibly partial if MFA is pending).",
+    responses={
+        401: {"description": "Invalid email or password."},
+        403: {"description": "Account is suspended."},
+    },
+)
 async def login(request: LoginRequest, db: Session = Depends(get_db)):
-    """Login with email/password. Returns MFA challenge if MFA enabled."""
     user = db.execute(
         select(AdminUser).where(AdminUser.email == request.email)
     ).scalar_one_or_none()
@@ -57,9 +73,23 @@ async def login(request: LoginRequest, db: Session = Depends(get_db)):
     return TokenResponse(access_token=token, mfa_required=False)
 
 
-@router.post("/auth/token", response_model=TokenResponse)
+@router.post(
+    "/auth/token",
+    response_model=TokenResponse,
+    summary="OAuth2 form login (Swagger Authorize button)",
+    description=(
+        "OAuth2-compatible `application/x-www-form-urlencoded` login.  "
+        "This endpoint is wired to the **Authorize** button in the Swagger UI — "
+        "use `username` (email) and `password` fields.  "
+        "Returns a full JWT (MFA is bypassed for the interactive docs flow)."
+    ),
+    response_description="Full JWT access token.",
+    responses={
+        401: {"description": "Invalid credentials."},
+        403: {"description": "Account is suspended."},
+    },
+)
 async def login_form(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    """OAuth2-compatible form login (used by /docs Authorize button)."""
     user = db.execute(
         select(AdminUser).where(AdminUser.email == form.username)
     ).scalar_one_or_none()
@@ -79,10 +109,23 @@ async def login_form(form: OAuth2PasswordRequestForm = Depends(), db: Session = 
     return TokenResponse(access_token=token, mfa_required=False)
 
 
-@router.post("/auth/mfa", response_model=TokenResponse)
+@router.post(
+    "/auth/mfa",
+    response_model=TokenResponse,
+    summary="Complete TOTP MFA challenge",
+    description=(
+        "Submit the 6-digit TOTP code from an authenticator app to upgrade a partial token "
+        "(received from `POST /auth/login` when `mfa_required: true`) into a full session token.  \n\n"
+        "The partial token must be included in the `Authorization: Bearer …` header of this request."
+    ),
+    response_description="Full JWT access token after successful MFA verification.",
+    responses={
+        400: {"description": "MFA not configured on this account."},
+        401: {"description": "Invalid or expired TOTP code."},
+    },
+)
 async def verify_mfa(request: MFARequest, db: Session = Depends(get_db),
                      current_user: AdminUser = Depends(get_current_user)):
-    """Verify TOTP and upgrade to full token."""
     if not current_user.mfa_enabled or not current_user.totp_secret:
         raise HTTPException(status_code=400, detail="MFA not configured")
 
@@ -98,16 +141,35 @@ async def verify_mfa(request: MFARequest, db: Session = Depends(get_db),
     return TokenResponse(access_token=token, mfa_required=False)
 
 
-@router.post("/auth/refresh", response_model=TokenResponse)
+@router.post(
+    "/auth/refresh",
+    response_model=TokenResponse,
+    summary="Refresh the current JWT",
+    description=(
+        "Issue a fresh JWT for the authenticated user without requiring re-entry of credentials.  "
+        "Useful for extending sessions before the current token expires."
+    ),
+    response_description="New JWT access token with a refreshed expiry.",
+    responses={
+        401: {"description": "Token missing, expired, or invalid."},
+    },
+)
 async def refresh_token(current_user: AdminUser = Depends(get_current_user)):
-    """Refresh JWT token."""
     token = create_access_token({"sub": str(current_user.id), "role": current_user.role_id})
     return TokenResponse(access_token=token, mfa_required=False)
 
 
-@router.post("/auth/logout")
+@router.post(
+    "/auth/logout",
+    summary="Logout current session",
+    description=(
+        "Signals logout intent.  Because JWTs are stateless, the token is not server-side "
+        "invalidated — the client must discard the token.  "
+        "To truly revoke access, use `POST /sessions/{session_id}:revoke`."
+    ),
+    response_description="Confirmation that the logout signal was received.",
+)
 async def logout():
-    """Logout (client discards token; stateless JWT)."""
     return {"status": "logged out"}
 
 
@@ -115,14 +177,67 @@ async def logout():
 # Users
 # ---------------------------------------------------------------------------
 
-@router.get("/users", response_model=list[AdminUserResponse])
+@router.get(
+    "/users",
+    response_model=list[AdminUserResponse],
+    summary="List all admin users",
+    description=(
+        "Returns all admin user accounts in the system.  "
+        "Requires an authenticated admin session."
+    ),
+    response_description="Array of admin user objects.",
+    responses={
+        401: {"description": "Not authenticated."},
+    },
+)
 async def list_users(db: Session = Depends(get_db),
                      current_user: AdminUser = Depends(get_current_user)):
     users = db.execute(select(AdminUser)).scalars().all()
     return users
 
 
-@router.post("/users:invite", response_model=AdminUserResponse, status_code=201)
+@router.get(
+    "/users/{user_id}",
+    response_model=AdminUserResponse,
+    summary="Get a single admin user by ID",
+    description=(
+        "Retrieve the full profile of a single admin user identified by UUID.  "
+        "Returns **404** if the user does not exist."
+    ),
+    response_description="Admin user object.",
+    responses={
+        401: {"description": "Not authenticated."},
+        404: {"description": "User not found."},
+    },
+)
+async def get_user(
+    user_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user),
+):
+    user = db.execute(select(AdminUser).where(AdminUser.id == user_id)).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
+@router.post(
+    "/users:invite",
+    response_model=AdminUserResponse,
+    status_code=201,
+    summary="Invite (create) a new admin user",
+    description=(
+        "Create a new admin user account and set its status to `invitation_pending`.  \n\n"
+        "- `role_id` must reference an existing role.\n"
+        "- `email` must be unique — returns **400** if already registered.\n"
+        "- The invited user should change their password on first login."
+    ),
+    response_description="Newly created admin user.",
+    responses={
+        400: {"description": "Email already registered, or role not found."},
+        401: {"description": "Not authenticated."},
+    },
+)
 async def invite_user(req: AdminUserCreate, db: Session = Depends(get_db),
                       current_user: AdminUser = Depends(get_current_user)):
     existing = db.execute(
@@ -152,7 +267,21 @@ async def invite_user(req: AdminUserCreate, db: Session = Depends(get_db),
     return user
 
 
-@router.patch("/users/{user_id}", response_model=AdminUserResponse)
+@router.patch(
+    "/users/{user_id}",
+    response_model=AdminUserResponse,
+    summary="Update an admin user's profile",
+    description=(
+        "Partially update an admin user's `full_name` and/or `district_scope`.  "
+        "Only the fields present in the request body are changed (PATCH semantics).  "
+        "An audit entry is written for every update."
+    ),
+    response_description="Updated admin user object.",
+    responses={
+        401: {"description": "Not authenticated."},
+        404: {"description": "User not found."},
+    },
+)
 async def update_user(user_id: uuid.UUID, req: AdminUserUpdate,
                       db: Session = Depends(get_db),
                       current_user: AdminUser = Depends(get_current_user)):
@@ -173,7 +302,22 @@ async def update_user(user_id: uuid.UUID, req: AdminUserUpdate,
     return user
 
 
-@router.post("/users/{user_id}:reset-mfa")
+@router.post(
+    "/users/{user_id}:reset-mfa",
+    summary="Reset and re-provision TOTP secret for a user",
+    description=(
+        "Generates a fresh TOTP secret for the target user, enables MFA on their account, "
+        "and returns the raw secret for them to scan into an authenticator app (e.g., Google "
+        "Authenticator, Authy).  \n\n"
+        "**Security note:** the secret is returned only once — store it securely or display "
+        "as a QR code to the user immediately."
+    ),
+    response_description="New TOTP secret string and instructions.",
+    responses={
+        401: {"description": "Not authenticated."},
+        404: {"description": "User not found."},
+    },
+)
 async def reset_mfa(user_id: uuid.UUID, db: Session = Depends(get_db),
                     current_user: AdminUser = Depends(get_current_user)):
     user = db.execute(select(AdminUser).where(AdminUser.id == user_id)).scalar_one_or_none()
@@ -191,7 +335,20 @@ async def reset_mfa(user_id: uuid.UUID, db: Session = Depends(get_db),
     return {"totp_secret": secret, "message": "Scan this secret into your authenticator app"}
 
 
-@router.post("/users/{user_id}:suspend")
+@router.post(
+    "/users/{user_id}:suspend",
+    summary="Suspend an admin user account",
+    description=(
+        "Sets the target user's status to `suspended`, preventing them from logging in.  \n\n"
+        "**Constraint:** a user cannot suspend their own account — returns **400** if attempted."
+    ),
+    response_description="Confirmation that the account has been suspended.",
+    responses={
+        400: {"description": "Cannot suspend yourself."},
+        401: {"description": "Not authenticated."},
+        404: {"description": "User not found."},
+    },
+)
 async def suspend_user(user_id: uuid.UUID, db: Session = Depends(get_db),
                        current_user: AdminUser = Depends(get_current_user)):
     user = db.execute(select(AdminUser).where(AdminUser.id == user_id)).scalar_one_or_none()
@@ -212,13 +369,39 @@ async def suspend_user(user_id: uuid.UUID, db: Session = Depends(get_db),
 # Roles
 # ---------------------------------------------------------------------------
 
-@router.get("/roles", response_model=list[RoleResponse])
+@router.get(
+    "/roles",
+    response_model=list[RoleResponse],
+    summary="List all RBAC roles",
+    description=(
+        "Returns all roles defined in the system, each with an array of `permissions` strings.  "
+        "Roles are referenced by `role_id` on admin user records."
+    ),
+    response_description="Array of role objects.",
+    responses={
+        401: {"description": "Not authenticated."},
+    },
+)
 async def list_roles(db: Session = Depends(get_db),
                      current_user: AdminUser = Depends(get_current_user)):
     return db.execute(select(Role)).scalars().all()
 
 
-@router.post("/roles", response_model=RoleResponse, status_code=201)
+@router.post(
+    "/roles",
+    response_model=RoleResponse,
+    status_code=201,
+    summary="Create a new RBAC role",
+    description=(
+        "Create a named role with an explicit list of permission strings.  "
+        "Permission strings are arbitrary — the application checks for their presence "
+        "in the role's `permissions` array."
+    ),
+    response_description="Newly created role.",
+    responses={
+        401: {"description": "Not authenticated."},
+    },
+)
 async def create_role(req: RoleBase, db: Session = Depends(get_db),
                       current_user: AdminUser = Depends(get_current_user)):
     role = Role(id=req.id, name=req.name, permissions=req.permissions)
@@ -228,7 +411,20 @@ async def create_role(req: RoleBase, db: Session = Depends(get_db),
     return role
 
 
-@router.patch("/roles/{role_id}", response_model=RoleResponse)
+@router.patch(
+    "/roles/{role_id}",
+    response_model=RoleResponse,
+    summary="Update an existing RBAC role",
+    description=(
+        "Replace the `name` and `permissions` array of an existing role.  "
+        "All users assigned this role immediately inherit the new permissions."
+    ),
+    response_description="Updated role object.",
+    responses={
+        401: {"description": "Not authenticated."},
+        404: {"description": "Role not found."},
+    },
+)
 async def update_role(role_id: str, req: RoleBase, db: Session = Depends(get_db),
                       current_user: AdminUser = Depends(get_current_user)):
     role = db.execute(select(Role).where(Role.id == role_id)).scalar_one_or_none()
@@ -245,7 +441,18 @@ async def update_role(role_id: str, req: RoleBase, db: Session = Depends(get_db)
 # Sessions
 # ---------------------------------------------------------------------------
 
-@router.get("/sessions")
+@router.get(
+    "/sessions",
+    summary="List active sessions for current user",
+    description=(
+        "Returns all non-revoked sessions belonging to the currently authenticated user.  "
+        "Each session record includes device, IP address, location, and last-active timestamp."
+    ),
+    response_description="Array of active session objects.",
+    responses={
+        401: {"description": "Not authenticated."},
+    },
+)
 async def list_sessions(db: Session = Depends(get_db),
                         current_user: AdminUser = Depends(get_current_user)):
     sessions = db.execute(
@@ -267,7 +474,20 @@ async def list_sessions(db: Session = Depends(get_db),
     ]
 
 
-@router.post("/sessions/{session_id}:revoke")
+@router.post(
+    "/sessions/{session_id}:revoke",
+    summary="Revoke a specific session",
+    description=(
+        "Mark a session as revoked by setting its `revoked_at` timestamp.  "
+        "Any token associated with that session will no longer be considered valid "
+        "by session-aware middleware."
+    ),
+    response_description="Confirmation that the session was revoked.",
+    responses={
+        401: {"description": "Not authenticated."},
+        404: {"description": "Session not found."},
+    },
+)
 async def revoke_session(session_id: uuid.UUID, db: Session = Depends(get_db),
                          current_user: AdminUser = Depends(get_current_user)):
     session = db.execute(

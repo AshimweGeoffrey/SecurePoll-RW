@@ -20,7 +20,24 @@ from datetime import date
 router = APIRouter(tags=["voters"])
 
 
-@router.get("/voters", response_model=VoterListResponse)
+@router.get(
+    "/voters",
+    response_model=VoterListResponse,
+    summary="List voters with pagination and filtering",
+    description=(
+        "Returns a paginated list of voters from the registry.  \n\n"
+        "**Query parameters:**\n"
+        "- `skip` / `limit` — pagination offset and page size (default 50).\n"
+        "- `search` — case-insensitive full-text search across `first_name`, `last_name`, "
+        "`voter_token`, and `registration_ref`.\n"
+        "- `status` — filter by voter status (`registered`, `voted`, `blocked`, `flagged`, `archived`).\n"
+        "- `district` — filter by `district_id` UUID string."
+    ),
+    response_description="Paginated voter list with total count.",
+    responses={
+        401: {"description": "Not authenticated."},
+    },
+)
 async def list_voters(
     skip: int = 0,
     limit: int = 50,
@@ -58,7 +75,20 @@ async def list_voters(
     )
 
 
-@router.get("/voters/by-token/{voter_token}", response_model=VoterResponse)
+@router.get(
+    "/voters/by-token/{voter_token}",
+    response_model=VoterResponse,
+    summary="Lookup voter by voter token",
+    description=(
+        "Retrieve a voter record using the unique `voter_token` printed on their voter card.  "
+        "This is the primary lookup used at registration desks before biometric enrolment."
+    ),
+    response_description="Full voter profile.",
+    responses={
+        401: {"description": "Not authenticated."},
+        404: {"description": "No voter found with that token."},
+    },
+)
 async def get_voter_by_token(voter_token: str, db: Session = Depends(get_db),
                               current_user: AdminUser = Depends(get_current_user)):
     voter = db.execute(
@@ -69,7 +99,20 @@ async def get_voter_by_token(voter_token: str, db: Session = Depends(get_db),
     return voter
 
 
-@router.get("/voters/{voter_id}", response_model=VoterResponse)
+@router.get(
+    "/voters/{voter_id}",
+    response_model=VoterResponse,
+    summary="Get a single voter by UUID",
+    description=(
+        "Retrieve the full profile of a voter by their internal UUID primary key.  "
+        "Use `GET /voters/by-token/{voter_token}` when you only have the voter card token."
+    ),
+    response_description="Full voter profile.",
+    responses={
+        401: {"description": "Not authenticated."},
+        404: {"description": "Voter not found."},
+    },
+)
 async def get_voter(voter_id: uuid.UUID, db: Session = Depends(get_db),
                     current_user: AdminUser = Depends(get_current_user)):
     voter = db.execute(select(Voter).where(Voter.id == voter_id)).scalar_one_or_none()
@@ -78,7 +121,23 @@ async def get_voter(voter_id: uuid.UUID, db: Session = Depends(get_db),
     return voter
 
 
-@router.post("/voters", response_model=VoterResponse, status_code=201)
+@router.post(
+    "/voters",
+    response_model=VoterResponse,
+    status_code=201,
+    summary="Register a new voter",
+    description=(
+        "Create a new voter record in the registry.  \n\n"
+        "Both `district_id` and `polling_station_id` must reference existing geography records "
+        "— returns **400** if either is missing.  "
+        "The voter is created with status `registered` and no biometric template."
+    ),
+    response_description="Newly registered voter profile.",
+    responses={
+        400: {"description": "District or polling station not found."},
+        401: {"description": "Not authenticated."},
+    },
+)
 async def create_voter(req: VoterCreate, db: Session = Depends(get_db),
                        current_user: AdminUser = Depends(get_current_user)):
     if not db.execute(select(District).where(District.id == req.district_id)).scalar_one_or_none():
@@ -96,7 +155,21 @@ async def create_voter(req: VoterCreate, db: Session = Depends(get_db),
     return voter
 
 
-@router.patch("/voters/{voter_id}", response_model=VoterResponse)
+@router.patch(
+    "/voters/{voter_id}",
+    response_model=VoterResponse,
+    summary="Update a voter's personal details",
+    description=(
+        "Partially update a voter record (PATCH semantics — only supplied fields are changed).  \n\n"
+        "Updatable fields: `first_name`, `last_name`, `phone`, `roll_position`.  "
+        "All changes are logged to the audit trail with a field-level diff."
+    ),
+    response_description="Updated voter profile.",
+    responses={
+        401: {"description": "Not authenticated."},
+        404: {"description": "Voter not found."},
+    },
+)
 async def update_voter(voter_id: uuid.UUID, req: VoterUpdate, db: Session = Depends(get_db),
                        current_user: AdminUser = Depends(get_current_user)):
     voter = db.execute(select(Voter).where(Voter.id == voter_id)).scalar_one_or_none()
@@ -117,7 +190,20 @@ async def update_voter(voter_id: uuid.UUID, req: VoterUpdate, db: Session = Depe
     return voter
 
 
-@router.post("/voters/{voter_id}:block")
+@router.post(
+    "/voters/{voter_id}:block",
+    summary="Block a voter from participating",
+    description=(
+        "Set the voter's status to `blocked` with a mandatory `reason` string.  "
+        "A blocked voter cannot be verified or cast a vote.  "
+        "Use `POST /voters/{voter_id}:restore` to reverse the block."
+    ),
+    response_description="Confirmation of the block action.",
+    responses={
+        401: {"description": "Not authenticated."},
+        404: {"description": "Voter not found."},
+    },
+)
 async def block_voter(voter_id: uuid.UUID, reason: str, note: str = "",
                       db: Session = Depends(get_db),
                       current_user: AdminUser = Depends(get_current_user)):
@@ -132,7 +218,20 @@ async def block_voter(voter_id: uuid.UUID, reason: str, note: str = "",
     return {"status": "blocked"}
 
 
-@router.post("/voters/{voter_id}:archive")
+@router.post(
+    "/voters/{voter_id}:archive",
+    summary="Archive a voter record",
+    description=(
+        "Move a voter to `archived` status.  "
+        "Archived voters are excluded from active registry counts and cannot participate in elections.  "
+        "Typically used after a duplicate merge operation (the loser record is archived)."
+    ),
+    response_description="Confirmation of the archive action.",
+    responses={
+        401: {"description": "Not authenticated."},
+        404: {"description": "Voter not found."},
+    },
+)
 async def archive_voter(voter_id: uuid.UUID, db: Session = Depends(get_db),
                         current_user: AdminUser = Depends(get_current_user)):
     voter = db.execute(select(Voter).where(Voter.id == voter_id)).scalar_one_or_none()
@@ -146,7 +245,19 @@ async def archive_voter(voter_id: uuid.UUID, db: Session = Depends(get_db),
     return {"status": "archived"}
 
 
-@router.post("/voters/{voter_id}:restore")
+@router.post(
+    "/voters/{voter_id}:restore",
+    summary="Restore a blocked or archived voter",
+    description=(
+        "Reset a voter's status back to `registered`, reversing a previous block or archive action.  "
+        "The restored voter regains the ability to be verified and to vote."
+    ),
+    response_description="Confirmation of the restore action.",
+    responses={
+        401: {"description": "Not authenticated."},
+        404: {"description": "Voter not found."},
+    },
+)
 async def restore_voter(voter_id: uuid.UUID, db: Session = Depends(get_db),
                         current_user: AdminUser = Depends(get_current_user)):
     voter = db.execute(select(Voter).where(Voter.id == voter_id)).scalar_one_or_none()
@@ -160,14 +271,28 @@ async def restore_voter(voter_id: uuid.UUID, db: Session = Depends(get_db),
     return {"status": "restored"}
 
 
-@router.post("/voters:import")
+@router.post(
+    "/voters:import",
+    summary="Bulk-import voters from a CSV file",
+    description=(
+        "Upload a UTF-8 CSV file to create multiple voter records in a single transaction.  \n\n"
+        "**Expected CSV columns** (header row required):  \n"
+        "`voter_token`, `registration_ref`, `national_id`, `first_name`, `last_name`, "
+        "`sex` (`male`/`female`), `date_of_birth` (ISO 8601), `phone`, `district_id` (UUID), "
+        "`polling_station_id` (UUID).\n\n"
+        "Rows that fail validation are counted as `rejected` and skipped — the rest are committed."
+    ),
+    response_description="Import summary: added, flagged, and rejected row counts.",
+    responses={
+        401: {"description": "Not authenticated."},
+        422: {"description": "File not provided or unreadable."},
+    },
+)
 async def import_voters(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: AdminUser = Depends(get_current_user),
 ):
-    """Import voters from CSV. Expected columns: voter_token,registration_ref,national_id,first_name,
-    last_name,sex,date_of_birth,phone,district_id,polling_station_id"""
     content = await file.read()
     reader = csv.DictReader(io.StringIO(content.decode()))
     added, flagged, rejected = 0, 0, 0
@@ -201,7 +326,19 @@ async def import_voters(
     return {"added": added, "flagged": flagged, "rejected": rejected}
 
 
-@router.get("/voters:export")
+@router.get(
+    "/voters:export",
+    summary="Export all voters as CSV",
+    description=(
+        "Download the complete voter registry as a CSV file.  "
+        "The response streams a `text/csv` attachment named `voters.csv`.  "
+        "An audit entry is written recording who exported the data and when."
+    ),
+    response_description="CSV file download (`Content-Disposition: attachment; filename=voters.csv`).",
+    responses={
+        401: {"description": "Not authenticated."},
+    },
+)
 async def export_voters(
     format: str = "csv",
     db: Session = Depends(get_db),
@@ -231,7 +368,18 @@ async def export_voters(
     )
 
 
-@router.get("/registry/health")
+@router.get(
+    "/registry/health",
+    summary="Registry health snapshot",
+    description=(
+        "Returns a quick summary of voter record counts broken down by status.  "
+        "Useful as a dashboard widget to monitor registry data quality."
+    ),
+    response_description="Registry counts by voter status.",
+    responses={
+        401: {"description": "Not authenticated."},
+    },
+)
 async def registry_health(db: Session = Depends(get_db),
                            current_user: AdminUser = Depends(get_current_user)):
     total = db.execute(select(func.count(Voter.id))).scalar()

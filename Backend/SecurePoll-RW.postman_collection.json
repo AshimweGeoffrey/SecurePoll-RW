@@ -1,0 +1,2573 @@
+{
+  "info": {
+    "_postman_id": "securepoll-rw-collection-v1",
+    "name": "SecurePoll RW",
+    "description": "Complete API collection for SecurePoll RW \u2014 a biometric voter verification system for Rwanda. Covers authentication, voter registry, biometric enrolment, election-day verification, fraud detection, audit log integrity, and analytics.\n\nLogin first with POST /auth/login \u2014 the test script auto-sets the `token` collection variable so all subsequent requests are authenticated automatically.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000",
+      "type": "string",
+      "description": "Base URL of the SecurePoll RW API server"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string",
+      "description": "JWT access token \u2014 auto-set by POST /auth/login test script"
+    },
+    {
+      "key": "voter_id",
+      "value": "",
+      "type": "string",
+      "description": "UUID of a voter \u2014 set manually after creating or listing voters"
+    },
+    {
+      "key": "voter_token",
+      "value": "RW-001-001-TEST",
+      "type": "string",
+      "description": "Human-readable voter token used for lookup and verification"
+    },
+    {
+      "key": "station_id",
+      "value": "",
+      "type": "string",
+      "description": "UUID of a polling station"
+    },
+    {
+      "key": "case_id",
+      "value": "FR-SEED01",
+      "type": "string",
+      "description": "Fraud case ID \u2014 seeded value for testing"
+    },
+    {
+      "key": "match_id",
+      "value": "",
+      "type": "string",
+      "description": "UUID of a duplicate match record"
+    },
+    {
+      "key": "anomaly_id",
+      "value": "ANOM-001",
+      "type": "string",
+      "description": "Anomaly signal ID"
+    },
+    {
+      "key": "audit_entry_id",
+      "value": "",
+      "type": "string",
+      "description": "UUID of an audit log entry"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "type": "string",
+      "description": "UUID of an admin user"
+    },
+    {
+      "key": "role_id",
+      "value": "super",
+      "type": "string",
+      "description": "Role identifier string (e.g. super, officer, auditor)"
+    },
+    {
+      "key": "session_id",
+      "value": "",
+      "type": "string",
+      "description": "UUID of an active session"
+    },
+    {
+      "key": "attempt_id",
+      "value": "",
+      "type": "string",
+      "description": "UUID of a verification attempt"
+    },
+    {
+      "key": "officer_id",
+      "value": "",
+      "type": "string",
+      "description": "UUID of the polling officer"
+    },
+    {
+      "key": "district_id",
+      "value": "",
+      "type": "string",
+      "description": "UUID of a district"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "System",
+      "description": "Health checks and server status endpoints. No authentication required.",
+      "item": [
+        {
+          "name": "Health Check",
+          "description": "Returns {\"status\": \"ok\"} when the API is reachable. No authentication required.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response body has status ok', function () {",
+                  "    var data = pm.response.json();",
+                  "    pm.expect(data.status).to.eql('ok');",
+                  "});",
+                  "",
+                  "pm.test('Response time is acceptable', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "description": "Authentication (JWT + TOTP 2FA), session management.\n\nLogin flow:\n1. POST /auth/login \u2192 if mfa_required, go to step 2, otherwise done\n2. POST /auth/mfa \u2192 full token",
+      "item": [
+        {
+          "name": "Login",
+          "description": "Login with email and password. Returns JWT access token. If MFA is enabled, returns a partial token with mfa_required=true \u2014 then call POST /auth/mfa.\n\nThe test script automatically stores the token as a collection variable.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var data = pm.response.json();",
+                  "if (data.access_token) {",
+                  "    pm.collectionVariables.set('token', data.access_token);",
+                  "    pm.test('Login successful', function () {",
+                  "        pm.response.to.have.status(200);",
+                  "    });",
+                  "    pm.test('Token received', function () {",
+                  "        pm.expect(data.access_token).to.be.a('string').and.not.empty;",
+                  "    });",
+                  "    pm.test('Token type is bearer', function () {",
+                  "        pm.expect(data.token_type).to.eql('bearer');",
+                  "    });",
+                  "    console.log('Token stored:', data.access_token.substring(0, 20) + '...');",
+                  "} else {",
+                  "    pm.test('Login response valid', function () {",
+                  "        pm.response.to.have.status(200);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@securepoll.rw\",\n  \"password\": \"SecurePassword123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login (OAuth2 Form)",
+          "description": "OAuth2-compatible form login \u2014 same as /auth/login but accepts x-www-form-urlencoded body. Used by the /docs Authorize button. Accepts username and password as form fields.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var data = pm.response.json();",
+                  "if (data.access_token) {",
+                  "    pm.collectionVariables.set('token', data.access_token);",
+                  "    console.log('Token stored from form login');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "username",
+                  "value": "admin@securepoll.rw",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "SecurePassword123!",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "token"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Verify MFA (TOTP)",
+          "description": "Second step of MFA login. Submit the 6-digit TOTP code from an authenticator app to upgrade a partial token to a full access token.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var data = pm.response.json();",
+                  "if (data.access_token && !data.mfa_required) {",
+                  "    pm.collectionVariables.set('token', data.access_token);",
+                  "    console.log('Full token stored after MFA verification');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/mfa",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "mfa"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "description": "Refresh the current JWT access token. Returns a new token with a fresh expiry. Useful to extend a session without re-entering credentials.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var data = pm.response.json();",
+                  "if (data.access_token) {",
+                  "    pm.collectionVariables.set('token', data.access_token);",
+                  "    console.log('Token refreshed');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "description": "Logout the current user. Since SecurePoll uses stateless JWTs, this is a client-side operation. The server returns a confirmation message and the client should discard the token.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Logout confirmed', function () {",
+                  "    var data = pm.response.json();",
+                  "    pm.expect(data.status).to.eql('logged out');",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set('token', '');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "description": "Admin user management \u2014 list, invite, update, MFA reset, and suspend. All endpoints require authentication.",
+      "item": [
+        {
+          "name": "List Users",
+          "description": "Retrieve all admin users in the system. Returns full profile including role, status, and last-active timestamp.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response is an array', function () {",
+                  "    var data = pm.response.json();",
+                  "    pm.expect(data).to.be.an('array');",
+                  "});",
+                  "",
+                  "var data = pm.response.json();",
+                  "if (data.length > 0) {",
+                  "    pm.collectionVariables.set('user_id', data[0].id);",
+                  "    console.log('user_id set to', data[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Invite User",
+          "description": "Invite a new admin user by email. The user is created with status `invitation_pending`. Requires super-admin role.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "var data = pm.response.json();",
+                  "if (data.id) {",
+                  "    pm.collectionVariables.set('user_id', data.id);",
+                  "    console.log('Invited user id:', data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Jean Pierre Habimana\",\n  \"email\": \"jp.habimana@securepoll.rw\",\n  \"password\": \"TempPass123!\",\n  \"role_id\": \"officer\",\n  \"district_scope\": \"Kigali\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users:invite",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users:invite"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get User by ID",
+          "description": "Retrieve a specific admin user by their UUID. Returns full profile.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/{{user_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{user_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update User",
+          "description": "Update an admin user's full name or district scope. Only the fields provided in the body are updated (partial update).",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Jean Pierre Habimana\",\n  \"district_scope\": \"Kigali City\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/{{user_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{user_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reset User MFA",
+          "description": "Reset MFA for an admin user and generate a new TOTP secret. Returns the raw TOTP secret that must be scanned into an authenticator app.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('TOTP secret returned', function () {",
+                  "    var data = pm.response.json();",
+                  "    pm.expect(data.totp_secret).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/{{user_id}}:reset-mfa",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{user_id}}:reset-mfa"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Suspend User",
+          "description": "Suspend an admin user account. Suspended users cannot log in. Cannot be used to suspend yourself.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('User suspended', function () {",
+                  "    var data = pm.response.json();",
+                  "    pm.expect(data.status).to.eql('suspended');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/{{user_id}}:suspend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{user_id}}:suspend"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Roles",
+      "description": "RBAC role management \u2014 list, create, and update permission roles.",
+      "item": [
+        {
+          "name": "List Roles",
+          "description": "Retrieve all RBAC roles defined in the system. Each role has a list of permission strings.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response is an array', function () {",
+                  "    pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/roles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "roles"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Role",
+          "description": "Create a new RBAC role with a list of permission strings. The role ID must be a unique slug.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"district_supervisor\",\n  \"name\": \"District Supervisor\",\n  \"permissions\": [\n    \"voters:read\",\n    \"voters:write\",\n    \"verification:read\",\n    \"audit:read\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/roles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "roles"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Role",
+          "description": "Update an existing role's name and permissions by role ID.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{role_id}}\",\n  \"name\": \"Super Administrator\",\n  \"permissions\": [\n    \"*\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/roles/{{role_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "roles",
+                "{{role_id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sessions",
+      "description": "Active session management for the current authenticated user.",
+      "item": [
+        {
+          "name": "List My Sessions",
+          "description": "List all active (non-revoked) sessions for the currently authenticated user. Returns device, IP address, location, and last-active time.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var data = pm.response.json();",
+                  "if (data.length > 0) {",
+                  "    pm.collectionVariables.set('session_id', data[0].id);",
+                  "    console.log('session_id set to', data[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sessions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sessions"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Revoke Session",
+          "description": "Revoke a specific session by UUID. This marks the session as revoked and the associated token becomes invalid.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Session revoked', function () {",
+                  "    var data = pm.response.json();",
+                  "    pm.expect(data.status).to.eql('revoked');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sessions/{{session_id}}:revoke",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sessions",
+                "{{session_id}}:revoke"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Voter Registry",
+      "description": "Voter registry management \u2014 create, search, update voter records. Voters progress through statuses: registered \u2192 voted; side paths: blocked, flagged, archived.",
+      "item": [
+        {
+          "name": "List Voters",
+          "description": "Retrieve a paginated list of voters. Supports search by name/token/ref, filter by status, and filter by district.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has total field', function () {",
+                  "    var data = pm.response.json();",
+                  "    pm.expect(data).to.have.property('total');",
+                  "    pm.expect(data).to.have.property('items');",
+                  "});",
+                  "",
+                  "var data = pm.response.json();",
+                  "if (data.items && data.items.length > 0) {",
+                  "    pm.collectionVariables.set('voter_id', data.items[0].id);",
+                  "    pm.collectionVariables.set('voter_token', data.items[0].voter_token);",
+                  "    console.log('voter_id set to', data.items[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/voters?skip=0&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "voters"
+              ],
+              "query": [
+                {
+                  "key": "skip",
+                  "value": "0",
+                  "description": "Pagination offset"
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Page size (max records)"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "description": "Search by name, voter token, or registration ref",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "registered",
+                  "description": "Filter by voter status (registered|voted|blocked|flagged|archived)",
+                  "disabled": true
+                },
+                {
+                  "key": "district",
+                  "value": "",
+                  "description": "Filter by district UUID",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Voter",
+          "description": "Create a new voter record in the registry. Validates that the district and polling station exist. Sets status to `registered`.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "var data = pm.response.json();",
+                  "if (data.id) {",
+                  "    pm.collectionVariables.set('voter_id', data.id);",
+                  "    pm.collectionVariables.set('voter_token', data.voter_token);",
+                  "    console.log('voter_id set to', data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"voter_token\": \"RW-001-001-0042\",\n  \"registration_ref\": \"REG-KGL-2024-0042\",\n  \"national_id\": \"1199870012345678\",\n  \"first_name\": \"Amina\",\n  \"last_name\": \"Uwimana\",\n  \"sex\": \"female\",\n  \"date_of_birth\": \"1987-03-15\",\n  \"phone\": \"+250788123456\",\n  \"district_id\": \"{{district_id}}\",\n  \"polling_station_id\": \"{{station_id}}\",\n  \"roll_position\": 42\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/voters",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "voters"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Voter by Token",
+          "description": "Look up a voter by their human-readable voter token (e.g. RW-001-001-0042). Used by field officers to pull up voter details quickly.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/voters/by-token/{{voter_token}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "voters",
+                "by-token",
+                "{{voter_token}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Voter by ID",
+          "description": "Retrieve a voter record by their internal UUID.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Voter has required fields', function () {",
+                  "    var data = pm.response.json();",
+                  "    pm.expect(data).to.have.property('id');",
+                  "    pm.expect(data).to.have.property('voter_token');",
+                  "    pm.expect(data).to.have.property('status');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/voters/{{voter_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "voters",
+                "{{voter_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Voter",
+          "description": "Update mutable fields on a voter record: first_name, last_name, phone, roll_position. Changes are logged to the audit trail with before/after diffs.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+250788654321\",\n  \"roll_position\": 43\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/voters/{{voter_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "voters",
+                "{{voter_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Block Voter",
+          "description": "Block a voter with a mandatory reason. Blocked voters cannot be verified at the polling station. Sets status to `blocked` and logs the action.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Voter blocked', function () {",
+                  "    var data = pm.response.json();",
+                  "    pm.expect(data.status).to.eql('blocked');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/voters/{{voter_id}}:block?reason=Suspected identity fraud&note=Biometric match with flagged record",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "voters",
+                "{{voter_id}}:block"
+              ],
+              "query": [
+                {
+                  "key": "reason",
+                  "value": "Suspected identity fraud",
+                  "description": "Mandatory reason for blocking"
+                },
+                {
+                  "key": "note",
+                  "value": "Biometric match with flagged record",
+                  "description": "Optional additional note"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Archive Voter",
+          "description": "Archive a voter record. Sets status to `archived`. Archived records are retained for audit purposes but excluded from active verification.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Voter archived', function () {",
+                  "    var data = pm.response.json();",
+                  "    pm.expect(data.status).to.eql('archived');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/voters/{{voter_id}}:archive",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "voters",
+                "{{voter_id}}:archive"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Restore Voter",
+          "description": "Restore a blocked or archived voter back to `registered` status.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Voter restored', function () {",
+                  "    var data = pm.response.json();",
+                  "    pm.expect(data.status).to.eql('restored');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/voters/{{voter_id}}:restore",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "voters",
+                "{{voter_id}}:restore"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Export Voters (CSV)",
+          "description": "Export the full voter registry as a CSV file. Returns a streaming CSV download with headers: voter_token, registration_ref, first_name, last_name, sex, date_of_birth, status, district_id, polling_station_id.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Content-Type is CSV', function () {",
+                  "    pm.expect(pm.response.headers.get('Content-Type')).to.include('text/csv');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/voters:export?format=csv",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "voters:export"
+              ],
+              "query": [
+                {
+                  "key": "format",
+                  "value": "csv"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Import Voters (CSV)",
+          "description": "Bulk-import voters from a CSV file. Expected columns: voter_token, registration_ref, national_id, first_name, last_name, sex, date_of_birth, phone, district_id, polling_station_id. Returns count of added, flagged, and rejected rows.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Import results returned', function () {",
+                  "    var data = pm.response.json();",
+                  "    pm.expect(data).to.have.property('added');",
+                  "    pm.expect(data).to.have.property('rejected');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "CSV file to import. Must have headers: voter_token,registration_ref,national_id,first_name,last_name,sex,date_of_birth,phone,district_id,polling_station_id"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/voters:import",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "voters:import"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Registry Health",
+          "description": "Get a health summary of the voter registry: total voters, breakdown by status (registered, voted, flagged, blocked), and data quality indicator.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Registry health has expected fields', function () {",
+                  "    var data = pm.response.json();",
+                  "    pm.expect(data).to.have.property('total_voters');",
+                  "    pm.expect(data).to.have.property('registered');",
+                  "    pm.expect(data).to.have.property('voted');",
+                  "    pm.expect(data).to.have.property('data_quality');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/registry/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "registry",
+                "health"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Biometrics",
+      "description": "Face biometric enrolment using ArcFace 512-d embeddings with AES-256-GCM encryption at rest. A 1:N FAISS deduplication scan runs automatically at enrolment.",
+      "item": [
+        {
+          "name": "Enroll Face Biometric",
+          "description": "Enrol a voter's face biometric. Accepts a multipart form with voter_id and face_image (base64-encoded JPEG/PNG). Runs liveness detection, quality assessment, and 1:N deduplication check. Creates a fraud case if a near-duplicate is found.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 or 201', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    pm.test('Enrollment response has quality score', function () {",
+                  "        var data = pm.response.json();",
+                  "        pm.expect(data).to.have.property('quality_score');",
+                  "        pm.expect(data).to.have.property('liveness_passed');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "voter_id",
+                  "value": "{{voter_id}}",
+                  "type": "text",
+                  "description": "UUID of the voter to enrol"
+                },
+                {
+                  "key": "face_image",
+                  "value": "/9j/4AAQSkZJRgABAQEASABIAAD/placeholder-base64-image==",
+                  "type": "text",
+                  "description": "Base64-encoded face image (JPEG or PNG). Replace with real base64 data."
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/biometrics/enroll",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "biometrics",
+                "enroll"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Biometric Quality",
+          "description": "Retrieve the biometric quality score and enrollment metadata for a specific voter. Returns quality score, liveness result, and capture timestamp.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/biometrics/quality/{{voter_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "biometrics",
+                "quality",
+                "{{voter_id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Verification",
+      "description": "Election-day 1:1 face verification and double-vote-protected vote casting. The verify endpoint is public (no JWT required) so field officers can call it directly from polling station devices.",
+      "item": [
+        {
+          "name": "Get Verification Attempt by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/verifications/{{attempt_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "verifications",
+                "{{attempt_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Retrieve a single verification attempt by its UUID."
+          }
+        },
+        {
+          "name": "Verify Voter (1:1 Face Match)",
+          "description": "Perform a 1:1 biometric verification against a voter's enrolled template. Public endpoint \u2014 no JWT required. Accepts voter_token, polling_station_id, officer_id, and face_image. Returns a decision panel with confidence score, liveness result, flags, and explainability breakdown.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Verification response has result field', function () {",
+                  "    var data = pm.response.json();",
+                  "    pm.expect(data).to.have.property('result');",
+                  "    pm.expect(data).to.have.property('confidence');",
+                  "});",
+                  "",
+                  "var data = pm.response.json();",
+                  "if (data.id) {",
+                  "    pm.collectionVariables.set('attempt_id', data.id);",
+                  "    console.log('attempt_id set to', data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"voter_token\": \"{{voter_token}}\",\n  \"polling_station_id\": \"{{station_id}}\",\n  \"officer_id\": \"{{officer_id}}\",\n  \"face_image\": \"<base64-encoded-face-image>\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/verifications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "verifications"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Verification Attempts",
+          "description": "List all verification attempts. Returns a paginated list with result, confidence, liveness, and flags for each attempt.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/verifications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "verifications"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Verification Attempt",
+          "description": "Retrieve a specific verification attempt by UUID. Returns full decision panel including confidence, liveness, flags, and AI explainability breakdown.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/verifications/{{attempt_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "verifications",
+                "{{attempt_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Override Verification Decision",
+          "description": "Manually override the AI decision on a verification attempt. Used when a supervisor reviews a case flagged for manual review and decides to approve or reject.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"override_result\": \"approved\",\n  \"note\": \"Supervisor manually verified identity via ID document cross-check\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/verifications/{{attempt_id}}:override",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "verifications",
+                "{{attempt_id}}:override"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Station Verification Log",
+          "description": "Retrieve the verification log for a specific polling station. Returns all verification attempts processed at that station, useful for station-level monitoring.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/verifications/station/{{station_id}}/log",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "verifications",
+                "station",
+                "{{station_id}}",
+                "log"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Votes",
+      "description": "Double-vote-protected vote casting. Uses a PostgreSQL SELECT FOR UPDATE row-lock to prevent concurrent duplicate votes.",
+      "item": [
+        {
+          "name": "Cast Vote",
+          "description": "Record that a voter has voted. Uses a PostgreSQL row-lock to prevent concurrent double-votes. Requires voter_id, officer_id, and polling_station_id. Updates voter status to `voted` atomically.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 or 201', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    pm.test('Vote cast response has status voted', function () {",
+                  "        var data = pm.response.json();",
+                  "        pm.expect(data.status).to.eql('voted');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"voter_id\": \"{{voter_id}}\",\n  \"officer_id\": \"{{officer_id}}\",\n  \"polling_station_id\": \"{{station_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/votes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "votes"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Fraud Cases",
+      "description": "Fraud cases auto-created by the biometric enrolment pipeline when a 1:N match exceeds the similarity threshold. Operators can dismiss or escalate cases.",
+      "item": [
+        {
+          "name": "List Fraud Cases",
+          "description": "Retrieve all fraud cases. Returns case ID, type, risk level, score, verdict, and linked voter/station details.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var data = pm.response.json();",
+                  "if (Array.isArray(data) && data.length > 0) {",
+                  "    pm.collectionVariables.set('case_id', data[0].id);",
+                  "    console.log('case_id set to', data[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/fraud/cases",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "fraud",
+                "cases"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Fraud Case",
+          "description": "Retrieve a specific fraud case by ID. Returns full case details including breakdown, timeline, assessment, and similarity score.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/fraud/cases/{{case_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "fraud",
+                "cases",
+                "{{case_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Dismiss Fraud Case",
+          "description": "Dismiss a fraud case, marking it as a false positive. Requires a resolution note. Sets resolution to `dismissed`.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"note\": \"Reviewed physical ID documents \u2014 confirmed false positive. Twins registered at different stations.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/fraud/cases/{{case_id}}:dismiss",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "fraud",
+                "cases",
+                "{{case_id}}:dismiss"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Escalate Fraud Case",
+          "description": "Escalate a fraud case to a higher authority. Requires a reason. Sets risk level to high and flags the case for senior review.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"High similarity (0.97) with a voter from a different province. Requesting electoral commission review.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/fraud/cases/{{case_id}}:escalate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "fraud",
+                "cases",
+                "{{case_id}}:escalate"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Fraud Summary",
+          "description": "Get an aggregated summary of fraud cases: counts by type, risk level distribution, open vs. resolved counts.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/fraud/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "fraud",
+                "summary"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Duplicates",
+      "description": "Biometric 1:N duplicate match management. Duplicates are auto-detected at enrolment time via FAISS similarity search. Operators can merge duplicate voter records.",
+      "item": [
+        {
+          "name": "Get Duplicate Match by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/duplicates/{{match_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "duplicates",
+                "{{match_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Retrieve a single duplicate match by its UUID."
+          }
+        },
+        {
+          "name": "List Duplicate Matches",
+          "description": "List all biometric duplicate matches. Each record has a similarity score and status (pending, merged, dismissed).",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var data = pm.response.json();",
+                  "if (Array.isArray(data) && data.length > 0) {",
+                  "    pm.collectionVariables.set('match_id', data[0].id);",
+                  "    console.log('match_id set to', data[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/duplicates",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "duplicates"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Duplicate Match",
+          "description": "Retrieve details of a specific duplicate match by UUID. Returns both voter records (A and B), similarity score, and resolution status.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/duplicates/{{match_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "duplicates",
+                "{{match_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Merge Duplicate Records",
+          "description": "Merge two duplicate voter records. The `survivor_id` specifies which record to keep. The other record is archived. Sets match status to `merged`.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"survivor_id\": \"{{voter_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/duplicates/{{match_id}}:merge",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "duplicates",
+                "{{match_id}}:merge"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Anomaly Signals",
+      "description": "Real-time anomaly signal management. Signals are generated by the AI anomaly detection pipeline when unusual patterns are detected (e.g., velocity spikes, geographic impossibilities).",
+      "item": [
+        {
+          "name": "Get Anomaly by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/anomalies/{{anomaly_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "anomalies",
+                "{{anomaly_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Retrieve a single anomaly signal by its string ID."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Anomaly Signals",
+          "description": "List all anomaly signals. Returns signal ID, type, severity, description, and acknowledgement status.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/anomalies",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "anomalies"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Anomaly Signal",
+          "description": "Retrieve details of a specific anomaly signal by ID.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/anomalies/{{anomaly_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "anomalies",
+                "{{anomaly_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Acknowledge Anomaly Signal",
+          "description": "Acknowledge an anomaly signal to mark it as reviewed. Requires a note explaining the review decision.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"note\": \"Reviewed \u2014 velocity spike explained by early morning voter rush at Kigali City Hall station. No further action required.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/anomalies/{{anomaly_id}}:acknowledge",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "anomalies",
+                "{{anomaly_id}}:acknowledge"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mute Anomaly Signal",
+          "description": "Mute an anomaly signal to suppress future notifications of the same type. Useful for known, benign patterns.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"duration_hours\": 24,\n  \"reason\": \"Known test pattern \u2014 muting for 24 hours during load testing window.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/anomalies/{{anomaly_id}}:mute",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "anomalies",
+                "{{anomaly_id}}:mute"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Audit Log",
+      "description": "Append-only SHA-256 hash-chained audit log. Every write operation across the system produces an immutable audit entry. The verify-chain endpoint walks the full chain and reports any tampered rows.",
+      "item": [
+        {
+          "name": "List Audit Entries",
+          "description": "Retrieve a paginated list of audit log entries. Each entry includes the action, actor, service, timestamp, and hash-chain values.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var data = pm.response.json();",
+                  "if (Array.isArray(data) && data.length > 0) {",
+                  "    pm.collectionVariables.set('audit_entry_id', data[0].id);",
+                  "    console.log('audit_entry_id set to', data[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/audit/entries?skip=0&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "audit",
+                "entries"
+              ],
+              "query": [
+                {
+                  "key": "skip",
+                  "value": "0"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "action",
+                  "value": "LOGIN",
+                  "description": "Filter by audit action",
+                  "disabled": true
+                },
+                {
+                  "key": "actor_id",
+                  "value": "{{user_id}}",
+                  "description": "Filter by actor UUID",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Audit Entry",
+          "description": "Retrieve a specific audit log entry by UUID. Returns the full entry including hash values for chain verification.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Audit entry has hash fields', function () {",
+                  "    var data = pm.response.json();",
+                  "    pm.expect(data).to.have.property('entry_hash');",
+                  "    pm.expect(data).to.have.property('prev_hash');",
+                  "    pm.expect(data).to.have.property('sequence');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/audit/entries/{{audit_entry_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "audit",
+                "entries",
+                "{{audit_entry_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Verify Audit Chain Integrity",
+          "description": "Walk the full SHA-256 hash chain and verify every entry. Reports the number of entries verified, any breaks found, the sequence number of the first break, and the duration. A healthy chain has breaks_found == 0.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('No chain breaks found', function () {",
+                  "    var data = pm.response.json();",
+                  "    pm.expect(data.breaks_found).to.eql(0);",
+                  "});",
+                  "",
+                  "pm.test('Chain verification has required fields', function () {",
+                  "    var data = pm.response.json();",
+                  "    pm.expect(data).to.have.property('entries_walked');",
+                  "    pm.expect(data).to.have.property('breaks_found');",
+                  "    pm.expect(data).to.have.property('verified_at');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/audit:verify-chain",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "audit:verify-chain"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Export Audit Log",
+          "description": "Export the full audit log as a downloadable file (CSV or JSON). Useful for compliance reporting and external audits.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/audit:export?format=csv",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "audit:export"
+              ],
+              "query": [
+                {
+                  "key": "format",
+                  "value": "csv",
+                  "description": "Export format: csv or json"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "description": "Real-time turnout statistics, demographic breakdown by sex and district, and verification performance metrics.",
+      "item": [
+        {
+          "name": "Turnout Statistics",
+          "description": "Get real-time election turnout statistics. Returns total registered voters, total verified, total voted, and a breakdown by polling station.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Turnout stats has required fields', function () {",
+                  "    var data = pm.response.json();",
+                  "    pm.expect(data).to.have.property('total_registered');",
+                  "    pm.expect(data).to.have.property('total_verified');",
+                  "    pm.expect(data).to.have.property('total_voted');",
+                  "    pm.expect(data).to.have.property('by_station');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/turnout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "analytics",
+                "turnout"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Demographics Breakdown",
+          "description": "Get demographic breakdown of verified voters by sex and district. Returns counts and percentages.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/demographics",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "analytics",
+                "demographics"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Verification Statistics",
+          "description": "Get verification performance metrics: total attempts, approval rate, manual review rate, rejection rate, and average confidence score.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Verification stats has required fields', function () {",
+                  "    var data = pm.response.json();",
+                  "    pm.expect(data).to.have.property('total_attempts');",
+                  "    pm.expect(data).to.have.property('approved');",
+                  "    pm.expect(data).to.have.property('average_confidence');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/verification",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "analytics",
+                "verification"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

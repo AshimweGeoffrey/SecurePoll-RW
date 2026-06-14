@@ -22,22 +22,41 @@ import ml.inference as inference
 router = APIRouter(prefix="/biometrics", tags=["biometrics"])
 
 
-@router.post("/enroll", response_model=EnrollmentResponse)
+@router.post(
+    "/enroll",
+    response_model=EnrollmentResponse,
+    summary="Enrol a voter's face biometric",
+    description=(
+        "Full biometric enrolment pipeline for a single voter:  \n\n"
+        "1. Decode the Base64 face image.\n"
+        "2. Run **ArcFace** inference to produce a 512-dimensional embedding.\n"
+        "3. Perform **passive liveness detection** — rejects spoofed/printed photos.\n"
+        "4. Encrypt the embedding with **AES-256-GCM** (random 96-bit nonce per template).\n"
+        "5. Add the embedding to the **FAISS** flat-L2 index and record the `faiss_id`.\n"
+        "6. Persist the `BiometricTemplate` row.\n"
+        "7. Run **1:N deduplication** — if any existing template has cosine similarity "
+        "above the configured threshold, a `DuplicateMatch` and `FraudCase` are auto-created.\n\n"
+        "**Form fields:**  \n"
+        "- `voter_id` — UUID of the voter to enrol.\n"
+        "- `face_image` — Base64-encoded JPEG or PNG face image."
+    ),
+    response_description="Enrolment confirmation with quality score and liveness result.",
+    responses={
+        400: {
+            "description": (
+                "Voter not found, invalid Base64 image, no face detected in image, "
+                "or liveness check failed (spoof detected)."
+            )
+        },
+        401: {"description": "Not authenticated."},
+    },
+)
 async def enroll_face(
     voter_id: uuid.UUID = Form(...),
     face_image: str = Form(..., description="Base64-encoded face image"),
     db: Session = Depends(get_db),
     current_user: AdminUser = Depends(get_current_user),
 ):
-    """
-    Enroll a voter's face.
-    1. Embed face -> 512-d vector
-    2. Passive liveness check
-    3. AES-256-GCM encrypt embedding
-    4. Add to FAISS -> get faiss_id
-    5. Store template
-    6. 1:N dedup scan -> create DuplicateMatch/FraudCase if similarity >= threshold
-    """
     voter = db.execute(select(Voter).where(Voter.id == voter_id)).scalar_one_or_none()
     if not voter:
         raise HTTPException(status_code=404, detail="Voter not found")
@@ -153,7 +172,22 @@ def _run_dedup(db: Session, new_voter: Voter, embedding: np.ndarray, new_faiss_i
     db.commit()
 
 
-@router.get("/quality/{voter_id}")
+@router.get(
+    "/quality/{voter_id}",
+    summary="Get biometric template quality for a voter",
+    description=(
+        "Returns the quality score, liveness result, and capture timestamp for the face "
+        "biometric template enrolled for the given voter.  \n\n"
+        "**Quality score** is a proxy derived from the L2 norm of the ArcFace embedding "
+        "(well-normalised embeddings score close to 1.0).  "
+        "Returns **404** if no template has been enrolled yet."
+    ),
+    response_description="Template quality metadata.",
+    responses={
+        401: {"description": "Not authenticated."},
+        404: {"description": "No biometric template enrolled for this voter."},
+    },
+)
 async def get_template_quality(voter_id: uuid.UUID, db: Session = Depends(get_db),
                                 current_user: AdminUser = Depends(get_current_user)):
     template = db.execute(

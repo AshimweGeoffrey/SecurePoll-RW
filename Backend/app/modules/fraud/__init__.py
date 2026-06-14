@@ -20,7 +20,20 @@ router = APIRouter(tags=["fraud"])
 # Fraud cases
 # ---------------------------------------------------------------------------
 
-@router.get("/fraud/cases")
+@router.get(
+    "/fraud/cases",
+    summary="List fraud cases with pagination",
+    description=(
+        "Returns a paginated list of all fraud cases in the system.  \n\n"
+        "Fraud cases are auto-created by the 1:N biometric deduplication pipeline at enrolment time, "
+        "or can be raised manually by supervisors.  "
+        "Use `skip` and `limit` for pagination."
+    ),
+    response_description="Paginated fraud case list with total count.",
+    responses={
+        401: {"description": "Not authenticated."},
+    },
+)
 async def list_fraud_cases(
     skip: int = 0,
     limit: int = 50,
@@ -32,7 +45,20 @@ async def list_fraud_cases(
     return {"total": total, "items": [FraudCaseResponse.model_validate(c) for c in cases]}
 
 
-@router.get("/fraud/cases/{case_id}", response_model=FraudCaseResponse)
+@router.get(
+    "/fraud/cases/{case_id}",
+    response_model=FraudCaseResponse,
+    summary="Get a single fraud case by ID",
+    description=(
+        "Retrieve the full details of a single fraud case by its string ID (e.g. `FR-A1B2C3`).  "
+        "Returns **404** if the case does not exist."
+    ),
+    response_description="Full fraud case object.",
+    responses={
+        401: {"description": "Not authenticated."},
+        404: {"description": "Case not found."},
+    },
+)
 async def get_fraud_case(case_id: str, db: Session = Depends(get_db),
                           current_user: AdminUser = Depends(get_current_user)):
     case = db.execute(select(FraudCase).where(FraudCase.id == case_id)).scalar_one_or_none()
@@ -41,7 +67,21 @@ async def get_fraud_case(case_id: str, db: Session = Depends(get_db),
     return case
 
 
-@router.post("/fraud/cases/{case_id}:dismiss")
+@router.post(
+    "/fraud/cases/{case_id}:dismiss",
+    summary="Dismiss a fraud case",
+    description=(
+        "Mark a fraud case as `dismissed` — indicating an investigator has reviewed it and "
+        "determined it is not a genuine fraud.  "
+        "Sets `resolution = dismissed` and records `resolved_at`.  "
+        "An audit entry is written."
+    ),
+    response_description="Confirmation that the case was dismissed.",
+    responses={
+        401: {"description": "Not authenticated."},
+        404: {"description": "Case not found."},
+    },
+)
 async def dismiss_case(case_id: str, db: Session = Depends(get_db),
                         current_user: AdminUser = Depends(get_current_user)):
     case = db.execute(select(FraudCase).where(FraudCase.id == case_id)).scalar_one_or_none()
@@ -56,7 +96,20 @@ async def dismiss_case(case_id: str, db: Session = Depends(get_db),
     return {"status": "dismissed"}
 
 
-@router.post("/fraud/cases/{case_id}:escalate")
+@router.post(
+    "/fraud/cases/{case_id}:escalate",
+    summary="Escalate a fraud case",
+    description=(
+        "Mark a fraud case as `escalated` — forwarding it to a higher authority for further action.  "
+        "Sets `resolution = escalated` and records `resolved_at`.  "
+        "An audit entry is written."
+    ),
+    response_description="Confirmation that the case was escalated.",
+    responses={
+        401: {"description": "Not authenticated."},
+        404: {"description": "Case not found."},
+    },
+)
 async def escalate_case(case_id: str, db: Session = Depends(get_db),
                          current_user: AdminUser = Depends(get_current_user)):
     case = db.execute(select(FraudCase).where(FraudCase.id == case_id)).scalar_one_or_none()
@@ -71,7 +124,18 @@ async def escalate_case(case_id: str, db: Session = Depends(get_db),
     return {"status": "escalated"}
 
 
-@router.get("/fraud/summary")
+@router.get(
+    "/fraud/summary",
+    summary="Fraud case count summary by type",
+    description=(
+        "Returns the total number of fraud cases and a breakdown by `FraudType`.  "
+        "Useful as a top-level dashboard metric."
+    ),
+    response_description="Total case count and per-type breakdown.",
+    responses={
+        401: {"description": "Not authenticated."},
+    },
+)
 async def fraud_summary(db: Session = Depends(get_db),
                          current_user: AdminUser = Depends(get_current_user)):
     total = db.execute(select(func.count(FraudCase.id))).scalar()
@@ -88,7 +152,20 @@ async def fraud_summary(db: Session = Depends(get_db),
 # Duplicates
 # ---------------------------------------------------------------------------
 
-@router.get("/duplicates")
+@router.get(
+    "/duplicates",
+    summary="List duplicate biometric matches with pagination",
+    description=(
+        "Returns a paginated list of `DuplicateMatch` records produced by the 1:N FAISS "
+        "deduplication scan run at enrolment time.  \n\n"
+        "Filter by `status` to see only pending, merged, or dismissed matches.  "
+        "Each match links two voter IDs with a cosine similarity score."
+    ),
+    response_description="Paginated duplicate match list with total count.",
+    responses={
+        401: {"description": "Not authenticated."},
+    },
+)
 async def list_duplicates(
     skip: int = 0,
     limit: int = 50,
@@ -107,14 +184,58 @@ async def list_duplicates(
     }
 
 
-@router.post("/duplicates/{match_id}:merge")
+@router.get(
+    "/duplicates/{match_id}",
+    response_model=DuplicateMatchResponse,
+    summary="Get a single duplicate match by ID",
+    description=(
+        "Retrieve the full record of a single `DuplicateMatch` by its UUID.  "
+        "Returns the two voter IDs, similarity score, status, and resolution metadata."
+    ),
+    response_description="Full duplicate match record.",
+    responses={
+        401: {"description": "Not authenticated."},
+        404: {"description": "Duplicate match not found."},
+    },
+)
+async def get_duplicate_match(
+    match_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user),
+):
+    match = db.execute(
+        select(DuplicateMatch).where(DuplicateMatch.id == match_id)
+    ).scalar_one_or_none()
+    if not match:
+        raise HTTPException(status_code=404, detail="Duplicate match not found")
+    return match
+
+
+@router.post(
+    "/duplicates/{match_id}:merge",
+    summary="Merge duplicate voter records",
+    description=(
+        "Resolve a duplicate match by designating one voter record as the **survivor** and "
+        "archiving the other (the loser).  \n\n"
+        "**Steps:**\n"
+        "1. Identify loser: the voter in the match that is **not** `survivor_id`.\n"
+        "2. Set loser's status to `archived`.\n"
+        "3. Mark the `DuplicateMatch` as `merged` and record resolution metadata.\n"
+        "4. Write an audit entry.\n\n"
+        "The `survivor_id` must be one of the two voter IDs in the match."
+    ),
+    response_description="Merge confirmation with survivor and archived voter IDs.",
+    responses={
+        401: {"description": "Not authenticated."},
+        404: {"description": "Duplicate match not found."},
+    },
+)
 async def merge_duplicates(
     match_id: uuid.UUID,
     req: MergeRequest,
     db: Session = Depends(get_db),
     current_user: AdminUser = Depends(get_current_user),
 ):
-    """Merge duplicate voter records. Archives the loser, keeps the survivor."""
     match = db.execute(
         select(DuplicateMatch).where(DuplicateMatch.id == match_id)
     ).scalar_one_or_none()
@@ -145,7 +266,20 @@ async def merge_duplicates(
 # Anomaly signals
 # ---------------------------------------------------------------------------
 
-@router.get("/anomalies")
+@router.get(
+    "/anomalies",
+    summary="List anomaly signals with pagination",
+    description=(
+        "Returns a paginated list of real-time anomaly signals detected by monitoring rules.  \n\n"
+        "Signals include statistical deviations such as unexpected turnout spikes, "
+        "rejection-rate anomalies, or unusually high duplicate rates.  "
+        "Filter by `status` (e.g. `active`, `acknowledged`, `muted`)."
+    ),
+    response_description="Paginated anomaly signal list with total count.",
+    responses={
+        401: {"description": "Not authenticated."},
+    },
+)
 async def list_anomalies(
     skip: int = 0,
     limit: int = 50,
@@ -177,7 +311,60 @@ async def list_anomalies(
     }
 
 
-@router.post("/anomalies/{anomaly_id}:acknowledge")
+@router.get(
+    "/anomalies/{anomaly_id}",
+    summary="Get a single anomaly signal by ID",
+    description=(
+        "Retrieve the full record of a single anomaly signal by its string ID.  "
+        "Returns the same field set as the list endpoint but for one specific signal."
+    ),
+    response_description="Full anomaly signal record.",
+    responses={
+        401: {"description": "Not authenticated."},
+        404: {"description": "Anomaly not found."},
+    },
+)
+async def get_anomaly(
+    anomaly_id: str,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user),
+):
+    anomaly = db.execute(
+        select(AnomalySignal).where(AnomalySignal.id == anomaly_id)
+    ).scalar_one_or_none()
+    if not anomaly:
+        raise HTTPException(status_code=404, detail="Anomaly not found")
+    return {
+        "id": anomaly.id,
+        "severity": anomaly.severity.value,
+        "title": anomaly.title,
+        "description": anomaly.description,
+        "is_live": anomaly.is_live,
+        "signal_name": anomaly.signal_name,
+        "baseline": anomaly.baseline,
+        "observed": anomaly.observed,
+        "unit": anomaly.unit,
+        "affected_entities": anomaly.affected_entities,
+        "recommendation": anomaly.recommendation,
+        "status": anomaly.status,
+        "detected_at": anomaly.detected_at,
+    }
+
+
+@router.post(
+    "/anomalies/{anomaly_id}:acknowledge",
+    summary="Acknowledge an anomaly signal",
+    description=(
+        "Mark an anomaly signal as `acknowledged` — indicating that an operator has seen it "
+        "and is investigating.  "
+        "The signal remains visible (`is_live` unchanged) until explicitly muted or resolved."
+    ),
+    response_description="Confirmation that the anomaly was acknowledged.",
+    responses={
+        401: {"description": "Not authenticated."},
+        404: {"description": "Anomaly not found."},
+    },
+)
 async def acknowledge_anomaly(anomaly_id: str, db: Session = Depends(get_db),
                                current_user: AdminUser = Depends(get_current_user)):
     anomaly = db.execute(
@@ -190,7 +377,19 @@ async def acknowledge_anomaly(anomaly_id: str, db: Session = Depends(get_db),
     return {"status": "acknowledged"}
 
 
-@router.post("/anomalies/{anomaly_id}:mute")
+@router.post(
+    "/anomalies/{anomaly_id}:mute",
+    summary="Mute an anomaly signal",
+    description=(
+        "Silence an anomaly signal by setting its status to `muted` and `is_live = false`.  "
+        "Muted signals are hidden from live dashboards but remain in the database for audit purposes."
+    ),
+    response_description="Confirmation that the anomaly was muted.",
+    responses={
+        401: {"description": "Not authenticated."},
+        404: {"description": "Anomaly not found."},
+    },
+)
 async def mute_anomaly(anomaly_id: str, db: Session = Depends(get_db),
                         current_user: AdminUser = Depends(get_current_user)):
     anomaly = db.execute(
