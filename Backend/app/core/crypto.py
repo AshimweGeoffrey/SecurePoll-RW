@@ -24,7 +24,7 @@ def encrypt_template(template_blob: bytes) -> tuple[bytes, bytes]:
     nonce = os.urandom(12)  # 96-bit nonce for GCM
     cipher = AESGCM(key)
     ciphertext = cipher.encrypt(nonce, template_blob, None)
-    return ciphertext, nonce
+    return nonce + ciphertext, nonce
 
 
 def decrypt_template(ciphertext: bytes, nonce: bytes) -> bytes:
@@ -32,6 +32,9 @@ def decrypt_template(ciphertext: bytes, nonce: bytes) -> bytes:
     Decrypt a biometric template using AES-256-GCM.
     """
     key = _get_key()
+    if not nonce:
+        nonce = ciphertext[:12]
+        ciphertext = ciphertext[12:]
     cipher = AESGCM(key)
     plaintext = cipher.decrypt(nonce, ciphertext, None)
     return plaintext

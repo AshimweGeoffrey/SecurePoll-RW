@@ -59,7 +59,7 @@ async def enroll_face(req: EnrollmentRequest, user_id: str, db: Session = Depend
     
     # Encrypt template
     quality_score = 0.95  # Stub: extract from model
-    template_blob, nonce = encrypt_template(embedding.tobytes())
+    template_blob, _nonce = encrypt_template(embedding.tobytes())
     
     # Add to FAISS
     faiss_id = inference.faiss_add(embedding)

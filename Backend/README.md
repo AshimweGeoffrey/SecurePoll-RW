@@ -6,65 +6,71 @@ A biometric voter verification system built with FastAPI, PostgreSQL, and advanc
 
 ## Quick Start
 
-### 1. Install Dependencies
+### Option A: Local PostgreSQL + Docker
+
+```bash
+cd /Users/Geoffrey/SecurePoll-RW/Backend
+bash setup.sh                    # One-command setup
+docker-compose up                # Start Postgres + API
+```
+
+### Option B: Supabase (Hosted PostgreSQL) ⭐ Recommended
+
+**5-minute setup with zero local infrastructure:**
+
+1. Create project at https://app.supabase.com
+2. Copy database URI from Settings > Database > Connection String
+3. Update `.env`: `DATABASE_URL=postgresql://postgres:password@host:6543/postgres?sslmode=require`
+4. Run: `pip install -e .` && `alembic upgrade head` && `uvicorn app.main:app --reload`
+
+👉 **Full guide**: [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) | **Quick ref**: [SUPABASE_QUICK.md](./SUPABASE_QUICK.md)
+
+### Manual Setup (Local)
+
+#### 1. Install Dependencies
 
 ```bash
 cd /Users/Geoffrey/SecurePoll-RW/Backend
 pip install -e .
 ```
 
-### 2. Configure Environment
-
-Copy `.env.example` to `.env` and update values:
+#### 2. Configure Environment
 
 ```bash
 cp .env.example .env
 ```
 
 Edit `.env`:
-- `DATABASE_URL`: Your PostgreSQL connection string
-- `JWT_SECRET`: Generate a strong secret (min 32 chars)
-- `TEMPLATE_AES_KEY`: Generate a 32-byte hex key:
-  ```python
-  import secrets
-  secrets.token_hex(32)  # Copy output to .env
-  ```
+- `DATABASE_URL`: PostgreSQL connection string (local or Supabase)
+- `JWT_SECRET`: Generate with `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`
+- `TEMPLATE_AES_KEY`: Generate with `python3 -c "import secrets; print(secrets.token_hex(32))"`
 
-### 3. Setup Database
+#### 3. Setup Database
 
-Requires PostgreSQL 16+. Using Docker Compose:
-
+**Local PostgreSQL 16+:**
 ```bash
 docker-compose up -d db
+# or: createdb securepoll
 ```
 
-Or use local Postgres:
-```bash
-createdb securepoll
-```
+**Supabase:** Connection URL from dashboard
 
-### 4. Run Migrations
+#### 4. Run Migrations
 
 ```bash
 alembic upgrade head
 ```
 
-### 5. Seed Sample Data (Optional)
+#### 5. Seed Sample Data (Optional)
 
-```python
+```bash
 python scripts/seed.py
 ```
 
-### 6. Start Development Server
+#### 6. Start Server
 
 ```bash
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-Or using Docker Compose:
-
-```bash
-docker-compose up
 ```
 
 ## API Documentation

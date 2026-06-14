@@ -15,7 +15,7 @@ from app.core.enums import (
 from app.db.models.voter import Voter
 from app.db.models.biometric import BiometricTemplate
 from app.db.models.verification import VerificationAttempt
-from app.db.models.polling_stations import PollingStation
+from app.db.models.geography import PollingStation
 from app.schemas import VerificationRequest, VerificationResponse, VoteRequest, VoteResponse
 import ml.inference as inference
 import numpy as np
@@ -110,7 +110,7 @@ async def verify_voter(
     
     # Decrypt stored template
     try:
-        stored_embedding_bytes = decrypt_template(template.template_blob, b"")  # Nonce issue: need to store it
+        stored_embedding_bytes = decrypt_template(template.template_blob, b"")
         stored_embedding = np.frombuffer(stored_embedding_bytes, dtype=np.float32)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Template decryption failed: {e}")

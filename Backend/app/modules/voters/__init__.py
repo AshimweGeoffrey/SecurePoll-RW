@@ -223,7 +223,7 @@ async def restore_voter(voter_id: uuid.UUID, user_id: str, db: Session = Depends
     return {"status": "restored"}
 
 
-@router.post("/:import")
+@router.post(":import")
 async def import_voters(
     file: UploadFile = File(...),
     user_id: str = "",
@@ -267,7 +267,7 @@ async def import_voters(
     return {"added": added, "rejected": rejected, "flagged": flagged}
 
 
-@router.get("/:export")
+@router.get(":export")
 async def export_voters(format: str = "csv", db: Session = Depends(get_db)):
     """Export voters."""
     # Stub
