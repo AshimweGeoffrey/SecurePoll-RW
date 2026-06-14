@@ -40,6 +40,10 @@ def test_audit_chain_integrity(db):
     from app.core.enums import AuditAction, ActorType
     import uuid
 
+    # Record baseline before adding entries
+    before = verify_chain(db)
+    baseline = before["entries_walked"]
+
     for i in range(5):
         write_audit(
             db,
@@ -53,7 +57,7 @@ def test_audit_chain_integrity(db):
 
     result = verify_chain(db)
     assert result["breaks_found"] == 0
-    assert result["entries_walked"] == 5
+    assert result["entries_walked"] == baseline + 5
 
 
 def test_audit_chain_detects_tamper(db):
@@ -64,12 +68,15 @@ def test_audit_chain_detects_tamper(db):
     from sqlalchemy import select
     import uuid
 
+    entry_id = uuid.uuid4()
     write_audit(db, action=AuditAction.LOGIN, actor_type=ActorType.user,
                 actor_id=str(uuid.uuid4()), service="Test", detail="Original")
     db.commit()
 
-    # Tamper: directly change the detail field (simulates psql UPDATE)
-    entry = db.execute(select(AuditEntry)).scalar_one()
+    # Tamper: directly change the detail field on the most-recently written entry
+    entry = db.execute(
+        select(AuditEntry).order_by(AuditEntry.sequence.desc()).limit(1)
+    ).scalar_one()
     entry.detail = "TAMPERED"
     db.commit()
 

@@ -1,9 +1,9 @@
 """People models: Field officers, admin users, roles, sessions."""
 from typing import Optional, List
 from datetime import datetime
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, Enum, JSON
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from app.db.models.base import Base, TimestampMixin, uuid_pk
+from app.db.models.base import Base, TimestampMixin, uuid_pk, val_enum
 from app.core.enums import UserStatus
 import uuid
 
@@ -34,7 +34,7 @@ class AdminUser(Base, TimestampMixin):
     password_hash: Mapped[str] = mapped_column(String)
     role_id: Mapped[str] = mapped_column(ForeignKey("roles.id"))
     district_scope: Mapped[str] = mapped_column(String, default="National")
-    status: Mapped[UserStatus] = mapped_column(Enum(UserStatus), default=UserStatus.invitation_pending)
+    status: Mapped[UserStatus] = mapped_column(val_enum(UserStatus), default=UserStatus.invitation_pending)
     mfa_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     totp_secret: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     last_active_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)

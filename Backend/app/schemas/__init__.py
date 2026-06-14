@@ -1,6 +1,6 @@
 """Pydantic schemas for all models."""
 from __future__ import annotations
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from datetime import datetime, date
 from uuid import UUID
 from app.core.enums import (VoterStatus, Sex, Modality, VerifyResult, Liveness,
@@ -29,8 +29,7 @@ class DistrictResponse(DistrictBase):
     created_at: datetime
     updated_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PollingStationBase(BaseModel):
@@ -55,8 +54,7 @@ class PollingStationResponse(PollingStationBase):
     created_at: datetime
     updated_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ============================================================================
@@ -92,8 +90,7 @@ class RoleResponse(RoleBase):
     created_at: datetime
     updated_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AdminUserBase(BaseModel):
@@ -120,8 +117,7 @@ class AdminUserResponse(AdminUserBase):
     created_at: datetime
     updated_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ============================================================================
@@ -166,8 +162,7 @@ class VoterResponse(VoterBase):
     created_at: datetime
     updated_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class VoterListResponse(BaseModel):
@@ -193,8 +188,7 @@ class EnrollmentResponse(BaseModel):
     liveness_passed: bool
     captured_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ============================================================================
@@ -220,8 +214,7 @@ class VerificationResponse(BaseModel):
     decision: dict  # Explainability JSON (from AI module)
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class DecisionPanelJSON(BaseModel):
@@ -246,8 +239,7 @@ class VoteResponse(BaseModel):
     status: VoterStatus
     voted_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ============================================================================
@@ -277,8 +269,7 @@ class FraudCaseResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class DuplicateMatchResponse(BaseModel):
@@ -292,8 +283,7 @@ class DuplicateMatchResponse(BaseModel):
     resolved_at: Optional[datetime]
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MergeRequest(BaseModel):
@@ -321,8 +311,7 @@ class AuditEntryResponse(BaseModel):
     entry_hash: str
     prev_hash: str
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ChainVerificationResponse(BaseModel):

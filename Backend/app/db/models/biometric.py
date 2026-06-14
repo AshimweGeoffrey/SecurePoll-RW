@@ -1,9 +1,9 @@
 """Biometric template models."""
 from typing import Optional
 from datetime import datetime
-from sqlalchemy import String, Float, Boolean, DateTime, ForeignKey, Enum, LargeBinary, Integer
+from sqlalchemy import String, Float, Boolean, DateTime, ForeignKey, LargeBinary, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from app.db.models.base import Base, TimestampMixin, uuid_pk
+from app.db.models.base import Base, TimestampMixin, uuid_pk, val_enum
 from app.core.enums import Modality
 import uuid
 
@@ -23,7 +23,7 @@ class BiometricTemplate(Base, TimestampMixin):
 
     id: Mapped[uuid.UUID] = uuid_pk()
     voter_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("voters.id"))
-    modality: Mapped[Modality] = mapped_column(Enum(Modality))
+    modality: Mapped[Modality] = mapped_column(val_enum(Modality))
     template_blob: Mapped[bytes] = mapped_column(LargeBinary)
     quality_score: Mapped[float] = mapped_column(Float)
     liveness_passed: Mapped[bool] = mapped_column(Boolean, default=False)

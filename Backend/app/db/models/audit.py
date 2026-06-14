@@ -1,9 +1,9 @@
 """Audit entry model (hash-chained, append-only)."""
 from typing import Optional, List
 from datetime import datetime
-from sqlalchemy import String, BigInteger, DateTime, ForeignKey, Enum, JSON, Sequence
+from sqlalchemy import String, BigInteger, DateTime, ForeignKey, JSON, Sequence
 from sqlalchemy.orm import Mapped, mapped_column
-from app.db.models.base import Base, uuid_pk
+from app.db.models.base import Base, uuid_pk, val_enum
 from app.core.enums import AuditAction, ActorType
 import uuid
 
@@ -15,8 +15,8 @@ class AuditEntry(Base):
     id: Mapped[uuid.UUID] = uuid_pk()
     sequence: Mapped[int] = mapped_column(BigInteger, Sequence("audit_seq"), unique=True, index=True)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    action: Mapped[AuditAction] = mapped_column(Enum(AuditAction))
-    actor_type: Mapped[ActorType] = mapped_column(Enum(ActorType))
+    action: Mapped[AuditAction] = mapped_column(val_enum(AuditAction))
+    actor_type: Mapped[ActorType] = mapped_column(val_enum(ActorType))
     actor_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     actor_role: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     service: Mapped[Optional[str]] = mapped_column(String, nullable=True)
