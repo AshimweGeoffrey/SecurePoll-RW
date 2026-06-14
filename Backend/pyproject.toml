@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "securepoll-backend"
+version = "0.1.0"
+description = "SecurePoll RW - Biometric voter verification backend"
+requires-python = ">=3.11"
+
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "sqlalchemy>=2.0",
+    "alembic>=1.12.0",
+    "psycopg[binary]>=3.17.0",
+    "pydantic>=2.4.0",
+    "pydantic-settings>=2.0.0",
+    "passlib[bcrypt]>=1.7.4",
+    "PyJWT>=2.8.0",
+    "pyotp>=2.9.0",
+    "cryptography>=41.0.0",
+    "python-multipart>=0.0.6",
+    "numpy>=1.24.0",
+    "faiss-cpu>=1.7.4",
+    "insightface>=0.7.3",
+    "onnxruntime>=1.16.0",
+    "pillow>=10.0.0",
+    "python-dotenv>=1.0.0",
+    "requests>=2.31.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "httpx>=0.25.0",
+    "black>=23.10.0",
+    "isort>=5.12.0",
+    "mypy>=1.6.0",
+]
+
+[tool.setuptools]
+packages = ["app"]
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.mypy]
+python_version = "3.11"
+check_untyped_defs = true
