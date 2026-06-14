@@ -1,5 +1,6 @@
 """Pytest configuration and shared fixtures."""
 import pytest
+from unittest.mock import patch, MagicMock
 from app.core.db import engine, SessionLocal
 from app.db.models.base import Base
 from app.core.enums import Province
@@ -76,3 +77,34 @@ def test_voter(db, test_user):
     db.add(voter)
     db.commit()
     return voter
+
+
+# ---------------------------------------------------------------------------
+# Module-scoped HTTP fixtures (shared by extended test modules)
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(scope="module")
+def client():
+    """TestClient for integration tests with mocked AI models."""
+    with patch("ml.inference.load_models"), \
+         patch("ml.inference._face_model", MagicMock()), \
+         patch("ml.inference._faiss_index", MagicMock(ntotal=0)):
+        from app.main import app
+        from fastapi.testclient import TestClient
+        return TestClient(app, raise_server_exceptions=False)
+
+
+@pytest.fixture(scope="module")
+def auth_token(client):
+    """Obtain a JWT access token using the seeded admin account."""
+    resp = client.post(
+        "/auth/login",
+        json={"email": "admin@securepoll.rw", "password": "SecurePassword123!"},
+    )
+    return resp.json().get("access_token", "")
+
+
+@pytest.fixture(scope="module")
+def auth_headers(auth_token):
+    """Authorization header dict ready for use in authenticated requests."""
+    return {"Authorization": f"Bearer {auth_token}"}
