@@ -6,6 +6,23 @@ from app.db.models.base import Base
 from app.core.enums import Province
 
 
+# ---------------------------------------------------------------------------
+# Auto-markers: tag every test by directory so -m unit / -m integration work
+# ---------------------------------------------------------------------------
+
+def pytest_collection_modifyitems(config, items):
+    for item in items:
+        path_str = str(item.fspath)
+        if "/unit/" in path_str or "\\unit\\" in path_str:
+            item.add_marker(pytest.mark.unit)
+        else:
+            item.add_marker(pytest.mark.integration)
+
+
+# ---------------------------------------------------------------------------
+# Shared fixtures (function-scoped DB session with rollback isolation)
+# ---------------------------------------------------------------------------
+
 @pytest.fixture(scope="function")
 def db():
     """Fresh DB session per test; rolls back all changes after each test."""
@@ -79,32 +96,5 @@ def test_voter(db, test_user):
     return voter
 
 
-# ---------------------------------------------------------------------------
-# Module-scoped HTTP fixtures (shared by extended test modules)
-# ---------------------------------------------------------------------------
-
-@pytest.fixture(scope="module")
-def client():
-    """TestClient for integration tests with mocked AI models."""
-    with patch("ml.inference.load_models"), \
-         patch("ml.inference._face_model", MagicMock()), \
-         patch("ml.inference._faiss_index", MagicMock(ntotal=0)):
-        from app.main import app
-        from fastapi.testclient import TestClient
-        return TestClient(app, raise_server_exceptions=False)
-
-
-@pytest.fixture(scope="module")
-def auth_token(client):
-    """Obtain a JWT access token using the seeded admin account."""
-    resp = client.post(
-        "/auth/login",
-        json={"email": "admin@securepoll.rw", "password": "SecurePassword123!"},
-    )
-    return resp.json().get("access_token", "")
-
-
-@pytest.fixture(scope="module")
-def auth_headers(auth_token):
-    """Authorization header dict ready for use in authenticated requests."""
-    return {"Authorization": f"Bearer {auth_token}"}
+# Note: module-scoped client/auth_token/auth_headers fixtures are defined
+# locally in each test file to avoid fixture scope conflicts across modules.

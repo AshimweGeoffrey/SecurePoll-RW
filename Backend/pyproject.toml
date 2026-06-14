@@ -34,6 +34,7 @@ dependencies = [
 dev = [
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
     "httpx>=0.25.0",
     "black>=23.10.0",
     "isort>=5.12.0",
@@ -50,6 +51,29 @@ target-version = ['py311']
 [tool.isort]
 profile = "black"
 line_length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra --tb=short -q"
+markers = [
+    "unit: pure unit tests — no database, no network",
+    "integration: tests that require a live database connection",
+    "slow: tests that take more than a few seconds",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:passlib",
+    "ignore::DeprecationWarning:pkg_resources",
+]
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["*/migrations/*", "*/tests/*", "*/scripts/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+fail_under = 60
 
 [tool.mypy]
 python_version = "3.11"
