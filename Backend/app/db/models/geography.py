@@ -1,5 +1,6 @@
 """Geography models: Districts and PollingStations."""
 from typing import Optional, List
+from datetime import time
 from sqlalchemy import String, Integer, Float, Time, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.models.base import Base, TimestampMixin, uuid_pk, val_enum
@@ -28,8 +29,8 @@ class PollingStation(Base, TimestampMixin):
     district_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("districts.id"))
     lat: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     lon: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    opens_at: Mapped[Optional[str]] = mapped_column(Time, nullable=True)
-    closes_at: Mapped[Optional[str]] = mapped_column(Time, nullable=True)
+    opens_at: Mapped[Optional[time]] = mapped_column(Time, nullable=True)
+    closes_at: Mapped[Optional[time]] = mapped_column(Time, nullable=True)
     status: Mapped[StationStatus] = mapped_column(val_enum(StationStatus), default=StationStatus.not_open)
     registered_count: Mapped[int] = mapped_column(Integer, default=0)
     verified_today: Mapped[int] = mapped_column(Integer, default=0)

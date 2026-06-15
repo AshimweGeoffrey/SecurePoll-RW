@@ -289,13 +289,15 @@ def test_cast_vote_missing_fields(client):
 
 def test_double_vote_returns_409(client, auth_headers, officer_id, geo_ids):
     """Create a fresh voter, vote once (200), then attempt a second vote (409)."""
+    import uuid
     district_id, station_id = geo_ids
+    suffix = uuid.uuid4().hex[:8].upper()
 
     # Create a throwaway voter
     resp = client.post("/voters", headers=auth_headers, json={
-        "voter_token": "VOTE-TEST-DOUBLE-0001",
-        "registration_ref": "#VOTE-DOUBLE-0001",
-        "national_id": "8888888888888888",
+        "voter_token": f"VOTE-DBL-{suffix}",
+        "registration_ref": f"#VOTE-DBL-{suffix}",
+        "national_id": f"DBL{suffix}",
         "first_name": "Double",
         "last_name": "VoteTest",
         "sex": "female",
@@ -322,12 +324,14 @@ def test_double_vote_returns_409(client, auth_headers, officer_id, geo_ids):
 
 
 def test_vote_blocked_voter(client, auth_headers, officer_id, geo_ids):
+    import uuid
     district_id, station_id = geo_ids
+    suffix = uuid.uuid4().hex[:8].upper()
 
     resp = client.post("/voters", headers=auth_headers, json={
-        "voter_token": "VOTE-TEST-BLOCKED-0001",
-        "registration_ref": "#VOTE-BLOCKED-0001",
-        "national_id": "7777777777777777",
+        "voter_token": f"VOTE-BLK-{suffix}",
+        "registration_ref": f"#VOTE-BLK-{suffix}",
+        "national_id": f"BLK{suffix}",
         "first_name": "Blocked",
         "last_name": "VoteTest",
         "sex": "male",

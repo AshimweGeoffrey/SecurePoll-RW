@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from app.db.models.fraud import FraudCase, DuplicateMatch, AnomalySignal
 from app.db.models.voter import Voter
 from app.core.enums import (
-    CaseResolution, FraudType, DuplicateStatus, AuditAction, ActorType, VoterStatus
+    CaseResolution, FraudType, RiskLevel, DuplicateStatus, AuditAction, ActorType, VoterStatus
 )
 from app.core.audit import write_audit
 import uuid

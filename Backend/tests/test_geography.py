@@ -97,15 +97,17 @@ def test_get_district_invalid_uuid(client, auth_headers):
 
 
 def test_create_district(client, auth_headers):
+    import uuid
+    code = f"INT-TEST-D-{uuid.uuid4().hex[:6].upper()}"
     payload = {
-        "code": "INT-TEST-D1",
+        "code": code,
         "name": "Integration Test District",
         "province": "Kigali City",
     }
     resp = client.post("/districts", headers=auth_headers, json=payload)
     assert resp.status_code == 201
     body = resp.json()
-    assert body["code"] == "INT-TEST-D1"
+    assert body["code"] == code
     assert body["name"] == "Integration Test District"
     assert "id" in body
 
@@ -194,8 +196,10 @@ def test_get_station_not_found(client, auth_headers):
 
 
 def test_create_polling_station(client, auth_headers, first_district_id):
+    import uuid
+    code = f"INT-TEST-PS-{uuid.uuid4().hex[:6].upper()}"
     payload = {
-        "code": "INT-TEST-PS1",
+        "code": code,
         "name": "Integration Test Station",
         "district_id": first_district_id,
         "lat": -1.9441,
@@ -204,7 +208,7 @@ def test_create_polling_station(client, auth_headers, first_district_id):
     resp = client.post("/polling-stations", headers=auth_headers, json=payload)
     assert resp.status_code == 201
     body = resp.json()
-    assert body["code"] == "INT-TEST-PS1"
+    assert body["code"] == code
     assert body["district_id"] == first_district_id
 
 

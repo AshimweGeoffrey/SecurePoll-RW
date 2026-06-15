@@ -206,6 +206,21 @@ async def list_users(db: Session = Depends(get_db),
 
 
 @router.get(
+    "/users/me",
+    response_model=AdminUserResponse,
+    summary="Get the currently authenticated user's profile",
+    description=(
+        "Returns the full profile of the user identified by the bearer token in the "
+        "`Authorization` header.  Useful for UI profile pages and permission checks."
+    ),
+    response_description="Current user's admin profile.",
+    responses={401: {"description": "Not authenticated."}},
+)
+async def get_me(current_user: AdminUser = Depends(get_current_user)):
+    return current_user
+
+
+@router.get(
     "/users/{user_id}",
     response_model=AdminUserResponse,
     summary="Get a single admin user by ID",
@@ -587,21 +602,6 @@ async def change_password(
     )
     db.commit()
     return {"status": "password changed"}
-
-
-@router.get(
-    "/users/me",
-    response_model=AdminUserResponse,
-    summary="Get the currently authenticated user's profile",
-    description=(
-        "Returns the full profile of the user identified by the bearer token in the "
-        "`Authorization` header.  Useful for UI profile pages and permission checks."
-    ),
-    response_description="Current user's admin profile.",
-    responses={401: {"description": "Not authenticated."}},
-)
-async def get_me(current_user: AdminUser = Depends(get_current_user)):
-    return current_user
 
 
 @router.get(

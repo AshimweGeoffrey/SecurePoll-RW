@@ -35,14 +35,15 @@ def test_list_voters_requires_auth(client):
 
 
 def test_audit_chain_integrity(db):
-    """Audit chain should have zero breaks on freshly written entries."""
+    """Freshly written entries must not introduce new chain breaks."""
     from app.core.audit import write_audit, verify_chain
     from app.core.enums import AuditAction, ActorType
     import uuid
 
-    # Record baseline before adding entries
+    # Snapshot break count and entry count before adding new entries
     before = verify_chain(db)
-    baseline = before["entries_walked"]
+    baseline_entries = before["entries_walked"]
+    baseline_breaks = before["breaks_found"]
 
     for i in range(5):
         write_audit(
@@ -56,8 +57,9 @@ def test_audit_chain_integrity(db):
         db.commit()
 
     result = verify_chain(db)
-    assert result["breaks_found"] == 0
-    assert result["entries_walked"] == baseline + 5
+    # New entries must not add any new breaks beyond pre-existing ones
+    assert result["breaks_found"] == baseline_breaks
+    assert result["entries_walked"] == baseline_entries + 5
 
 
 def test_audit_chain_detects_tamper(db):

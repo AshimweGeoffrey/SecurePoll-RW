@@ -48,14 +48,17 @@ def auth_headers(client):
 @pytest.fixture(scope="module")
 def fresh_voter_id(client, auth_headers):
     """Create a voter without a biometric template for enrolment tests."""
+    import uuid
     stations = client.get("/polling-stations", headers=auth_headers, params={"limit": 1})
+    assert stations.status_code == 200, f"List stations failed: {stations.text}"
     station_id = stations.json()["items"][0]["id"]
     district_id = stations.json()["items"][0]["district_id"]
 
+    suffix = uuid.uuid4().hex[:8].upper()
     resp = client.post("/voters", headers=auth_headers, json={
-        "voter_token": "BIO-TEST-9999-ZZZZ",
-        "registration_ref": "#BIO-TEST-9999",
-        "national_id": "9999999999999999",
+        "voter_token": f"BIO-{suffix}",
+        "registration_ref": f"#BIO-{suffix}",
+        "national_id": f"BIO{suffix}",
         "first_name": "Biometric",
         "last_name": "TestUser",
         "sex": "male",

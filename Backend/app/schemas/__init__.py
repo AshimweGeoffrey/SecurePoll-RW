@@ -1,7 +1,7 @@
 """Pydantic schemas for all models."""
 from __future__ import annotations
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
-from datetime import datetime, date
+from datetime import datetime, date, time
 from uuid import UUID
 from app.core.enums import (VoterStatus, Sex, Modality, VerifyResult, Liveness,
                             StationStatus, FraudType, RiskLevel, CaseResolution,
@@ -38,8 +38,8 @@ class PollingStationBase(BaseModel):
     district_id: UUID
     lat: Optional[float] = None
     lon: Optional[float] = None
-    opens_at: Optional[str] = None
-    closes_at: Optional[str] = None
+    opens_at: Optional[time] = None
+    closes_at: Optional[time] = None
     status: StationStatus = StationStatus.not_open
 
 
