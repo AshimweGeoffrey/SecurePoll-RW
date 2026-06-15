@@ -221,6 +221,37 @@ async def get_me(current_user: AdminUser = Depends(get_current_user)):
 
 
 @router.get(
+    "/users/{user_id}:totp-uri",
+    summary="Get TOTP provisioning URI for QR code display",
+    description=(
+        "Returns the TOTP provisioning URI and secret for the target user so a frontend can "
+        "render a QR code for authenticator app setup.  \n\n"
+        "Requires that `POST /users/{user_id}:reset-mfa` has already been called to generate "
+        "the secret.  Returns **400** if no secret exists yet."
+    ),
+    response_description="Provisioning URI and raw TOTP secret.",
+    responses={
+        400: {"description": "No TOTP secret set — call :reset-mfa first."},
+        401: {"description": "Not authenticated."},
+        404: {"description": "User not found."},
+    },
+)
+async def get_totp_uri(
+    user_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user),
+):
+    user = db.execute(select(AdminUser).where(AdminUser.id == user_id)).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if not user.totp_secret:
+        raise HTTPException(status_code=400, detail="No TOTP secret set — call :reset-mfa first")
+    from app.core.security import get_totp_uri as _build_uri
+    uri = _build_uri(user.totp_secret, user.email)
+    return {"totp_secret": user.totp_secret, "provisioning_uri": uri}
+
+
+@router.get(
     "/users/{user_id}",
     response_model=AdminUserResponse,
     summary="Get a single admin user by ID",
@@ -602,37 +633,6 @@ async def change_password(
     )
     db.commit()
     return {"status": "password changed"}
-
-
-@router.get(
-    "/users/{user_id}:totp-uri",
-    summary="Get TOTP provisioning URI for QR code display",
-    description=(
-        "Returns the TOTP provisioning URI and secret for the target user so a frontend can "
-        "render a QR code for authenticator app setup.  \n\n"
-        "Requires that `POST /users/{user_id}:reset-mfa` has already been called to generate "
-        "the secret.  Returns **400** if no secret exists yet."
-    ),
-    response_description="Provisioning URI and raw TOTP secret.",
-    responses={
-        400: {"description": "No TOTP secret set — call :reset-mfa first."},
-        401: {"description": "Not authenticated."},
-        404: {"description": "User not found."},
-    },
-)
-async def get_totp_uri(
-    user_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    current_user: AdminUser = Depends(get_current_user),
-):
-    user = db.execute(select(AdminUser).where(AdminUser.id == user_id)).scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    if not user.totp_secret:
-        raise HTTPException(status_code=400, detail="No TOTP secret set — call :reset-mfa first")
-    from app.core.security import get_totp_uri as _build_uri
-    uri = _build_uri(user.totp_secret, user.email)
-    return {"totp_secret": user.totp_secret, "provisioning_uri": uri}
 
 
 @router.delete(

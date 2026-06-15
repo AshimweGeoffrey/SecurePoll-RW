@@ -1,53 +1,47 @@
-"""ML/AI inference module - loads models at startup."""
-import numpy as np
-import faiss
+"""
+ML/AI inference facade.
+
+Embedding and liveness are delegated to a pluggable backend (see ``ml.providers``)
+chosen at startup by ``settings.ai_backend``.  FAISS 1:N indexing is backend-agnostic
+and implemented here.  The module-level function names (``embed_face``,
+``check_liveness``, ``faiss_*``) are the stable public surface used across the app
+and patched by the test-suite, so they are preserved regardless of backend.
+"""
 import logging
 from pathlib import Path
 from typing import Optional, Tuple
 
+import numpy as np
+import faiss
+
+from app.core.config import settings
+
 logger = logging.getLogger(__name__)
 
-# Global model instances (loaded at startup)
-_face_model = None
-_liveness_model = None
+# Globals (also patched by the test-suite — keep these names).
+_backend = None
+_face_model = None      # retained for backward-compat / test patch target
+_liveness_model = None  # retained for backward-compat / test patch target
 _faiss_index = None
 
 
 def load_models():
     """
-    Load AI models at FastAPI startup.
-    
-    - Face embedding model (InsightFace ArcFace buffalo_l): 512-d embeddings
-    - Liveness detection model (passive anti-spoof)
-    - FAISS index (IndexFlatIP for 1:N dedup)
-    
-    Runs once in lifespan event; not per-request.
+    Load the configured inference backend and the FAISS index at startup.
+
+    Backend is selected by ``settings.ai_backend`` ("insightface" | "synthetic").
+    Runs once in the FastAPI lifespan event; not per-request.
     """
-    global _face_model, _liveness_model, _faiss_index
-    
-    try:
-        logger.info("Loading InsightFace ArcFace model...")
-        from insightface.app import FaceAnalysis
-        _face_model = FaceAnalysis(name='buffalo_l', providers=['CPUExecutionProvider'])
-        _face_model.prepare(ctx_id=-1)  # CPU mode
-        logger.info("InsightFace model loaded")
-    except Exception as e:
-        logger.error(f"Failed to load face model: {e}")
-        raise
-    
-    try:
-        logger.info("Loading liveness detection model...")
-        # Using a simple stub for now; can replace with actual model
-        # e.g., Silent-Face or MiniFASNet from scipy-face or deepface
-        _liveness_model = None  # Stub: will implement with real model
-        logger.info("Liveness model initialized (stub)")
-    except Exception as e:
-        logger.warning(f"Could not load liveness model: {e}; using stub")
-    
+    global _backend, _faiss_index
+
+    from ml.providers import get_backend
+    _backend = get_backend(settings.ai_backend)
+    logger.info(f"Inference backend: {_backend.name}")
+    _backend.load()
+
     try:
         logger.info("Initializing FAISS index...")
-        # Create or load persisted FAISS index
-        index_path = Path("ml/faiss/index.bin")
+        index_path = Path(settings.faiss_index_path)
         if index_path.exists():
             logger.info(f"Loading FAISS index from {index_path}")
             _faiss_index = faiss.read_index(str(index_path))
@@ -63,90 +57,43 @@ def load_models():
 
 def embed_face(image_bytes: bytes) -> np.ndarray:
     """
-    Embed a face image to a 512-d L2-normalized vector.
-    
-    Uses InsightFace ArcFace model. Detects the largest face in the image,
-    extracts the embedding, and returns L2-normalized vector (for cosine similarity).
-    
+    Embed a face image to a 512-d L2-normalized vector via the active backend.
+
     Returns: (512,) float32 array
-    Raises: ValueError if no face detected
+    Raises: ValueError if the image cannot be decoded or no face is detected.
     """
-    if _face_model is None:
-        raise RuntimeError("Face model not loaded")
-    
-    # Convert bytes to PIL Image or numpy array
-    from PIL import Image
-    import io
-    try:
-        img = Image.open(io.BytesIO(image_bytes))
-        img_array = np.array(img)
-    except Exception as e:
-        raise ValueError(f"Could not decode image: {e}")
-    
-    # Detect faces
-    faces = _face_model.get(img_array)
-    
-    if not faces:
-        raise ValueError("No face detected in image")
-    
-    # Get the largest face (by area)
-    largest_face = max(faces, key=lambda f: f.bbox[2] * f.bbox[3])
-    
-    # Extract embedding (already L2-normalized by InsightFace)
-    embedding = largest_face.embedding
-    
-    return embedding
+    if _backend is None:
+        raise RuntimeError("Inference backend not loaded")
+    return _backend.embed_face(image_bytes)
 
 
 def check_liveness(image_bytes: bytes) -> Tuple[str, float]:
-    """
-    Check if the face in the image is live (passive anti-spoof).
-    
-    Returns: ("live"|"spoof"|"failed", confidence)
-    
-    For now, returns a stub; will integrate real anti-spoof model.
-    """
-    # Stub implementation: assume live for now
-    # In production, use Silent-Face, MiniFASNet, or deepface anti-spoof
-    return ("live", 0.95)
+    """Check passive liveness via the active backend. Returns (status, confidence)."""
+    if _backend is None:
+        raise RuntimeError("Inference backend not loaded")
+    return _backend.check_liveness(image_bytes)
 
 
 def faiss_search(embedding: np.ndarray, k: int = 5) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Search FAISS index for nearest neighbors (1:N dedup).
-    
-    Args:
-        embedding: (512,) normalized embedding
-        k: number of nearest neighbors to return
-    
-    Returns: (distances, indices)
-        distances: (k,) array of cosine distances [0, 2]
-        indices: (k,) array of FAISS row IDs
+    Search the FAISS index for nearest neighbors (1:N dedup).
+
+    Returns: (distances, indices) — each a (k,) array.
     """
     if _faiss_index is None:
         raise RuntimeError("FAISS index not initialized")
-    
-    # FAISS IndexFlatIP expects 2D input: (1, 512)
     query = embedding.reshape(1, -1).astype(np.float32)
     distances, indices = _faiss_index.search(query, k)
-    
     return distances[0], indices[0]
 
 
 def faiss_add(embedding: np.ndarray) -> int:
-    """
-    Add a new embedding to the FAISS index.
-    
-    Returns: the FAISS row ID (auto-incremented)
-    """
+    """Add a new embedding to the FAISS index. Returns its row ID."""
     if _faiss_index is None:
         raise RuntimeError("FAISS index not initialized")
-    
-    # Add as (1, 512) array
     embedding_2d = embedding.reshape(1, -1).astype(np.float32)
     faiss_id = _faiss_index.ntotal
     _faiss_index.add(embedding_2d)
-    
     return faiss_id
 
 
@@ -154,8 +101,7 @@ def faiss_save():
     """Persist the FAISS index to disk."""
     if _faiss_index is None:
         return
-    
-    index_path = Path("ml/faiss/index.bin")
+    index_path = Path(settings.faiss_index_path)
     index_path.parent.mkdir(parents=True, exist_ok=True)
     faiss.write_index(_faiss_index, str(index_path))
     logger.info(f"FAISS index saved to {index_path}")

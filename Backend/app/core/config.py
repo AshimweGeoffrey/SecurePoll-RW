@@ -26,10 +26,15 @@ class Settings(BaseSettings):
     # Encryption
     template_aes_key: str  # 32-byte hex for AES-256-GCM
 
-    # AI/ML thresholds
-    face_match_threshold: float = 0.80
-    review_floor: float = 0.60
-    dedup_threshold: float = 0.85
+    # AI/ML thresholds — calibrated on the LFW cross-session benchmark
+    # (genuine cosine ~0.63, impostor max ~0.195). Old 0.80/0.60/0.85 rejected
+    # ~95% of genuine voters; see scripts/benchmark_lfw.py.
+    face_match_threshold: float = 0.30
+    review_floor: float = 0.20
+    dedup_threshold: float = 0.40
+
+    # Inference backend: "insightface" (real ArcFace) | "synthetic" (deterministic, no model)
+    ai_backend: str = "insightface"
 
     # FAISS
     faiss_index_path: str = "ml/faiss/index.bin"

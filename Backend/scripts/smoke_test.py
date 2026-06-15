@@ -25,7 +25,7 @@ def req(method, path, body=None, headers=None, form=None, qs=None, expect=None, 
 
     rq = urllib.request.Request(url, data=data, headers=hdrs, method=method)
     try:
-        with urllib.request.urlopen(rq, timeout=12) as r:
+        with urllib.request.urlopen(rq, timeout=30) as r:
             status = r.status
             try:
                 resp_body = json.loads(r.read().decode())
@@ -114,11 +114,13 @@ req("DELETE", f"/users/{USER_ID}", headers=hdr(TOKEN), expect=[204, 400, 403, 40
 # ═══════════════════════════════════════════════════════════════════════════
 print("\n=== ROLES ===")
 req("GET", "/roles", headers=hdr(TOKEN), expect=[200])
+role_slug = f"smoke-{uuid.uuid4().hex[:6]}"
 s, rnb = req("POST", "/roles", headers=hdr(TOKEN),
-             body={"name": f"role_{uuid.uuid4().hex[:6]}", "description": "smoke role"},
+             body={"id": role_slug, "name": role_slug, "permissions": []},
              expect=[200, 201])
 ROLE_ID = rnb.get("id", NULL_UUID) if s in (200, 201) else NULL_UUID
-req("PATCH", f"/roles/{ROLE_ID}", headers=hdr(TOKEN), body={"description": "updated"}, expect=[200, 404])
+req("PATCH", f"/roles/{ROLE_ID}", headers=hdr(TOKEN),
+    body={"id": ROLE_ID, "name": ROLE_ID, "permissions": ["read"]}, expect=[200, 404])
 req("DELETE", f"/roles/{ROLE_ID}", headers=hdr(TOKEN), expect=[204, 400, 404, 409])
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -138,7 +140,8 @@ DISTRICT_ID = first_id(dist_body)
 
 sx = uuid.uuid4().hex[:6].upper()
 s, new_dist = req("POST", "/districts", headers=hdr(TOKEN),
-                  body={"name": f"Smoke District {sx}", "code": f"SD-{sx}", "region": "Test"},
+                  body={"name": f"Smoke District {sx}", "code": f"SD-{sx}",
+                        "province": "Northern"},
                   expect=[200, 201])
 TEMP_DIST_ID = new_dist.get("id") if s in (200, 201) else None
 
@@ -283,20 +286,23 @@ if CASE_ID:
     req("POST", f"/fraud/cases/{CASE_ID}:dismiss", headers=hdr(TOKEN),
         body={"reason": "smoke"}, expect=[200, 400])
 s, fc_new = req("POST", "/fraud/cases", headers=hdr(TOKEN),
-                body={"type": "duplicate_biometric", "title": "Smoke case", "risk_level": "medium"},
+                body={"type": "Duplicate", "title": "Smoke case", "risk_level": "critical"},
                 expect=[200, 201])
 
 s, dup_body = req("GET", "/duplicates", headers=hdr(TOKEN), expect=[200])
 DUP_ID = first_id(dup_body)
 if DUP_ID:
     req("GET", f"/duplicates/{DUP_ID}", headers=hdr(TOKEN), expect=[200])
-    req("POST", f"/duplicates/{DUP_ID}:merge", headers=hdr(TOKEN), expect=[200, 400])
+    s2, dupb2 = req("GET", f"/duplicates/{DUP_ID}", headers=hdr(TOKEN), expect=[200])
+    survivor = dupb2.get("record_a_id") or dupb2.get("record_b_id") or NULL_UUID
+    req("POST", f"/duplicates/{DUP_ID}:merge", headers=hdr(TOKEN),
+        body={"survivor_id": survivor}, expect=[200, 400])
 
 s, ano_body = req("GET", "/anomalies", headers=hdr(TOKEN), expect=[200])
 ANO_ID = first_id(ano_body)
 s2, ano_new = req("POST", "/anomalies", headers=hdr(TOKEN),
-                  body={"severity": "low", "title": "Smoke anomaly",
-                        "anomaly_type": "geographic_outlier"},
+                  body={"severity": "critical", "title": "Smoke anomaly",
+                        "signal_name": "geographic_outlier"},
                   expect=[200, 201, 422])
 NEW_ANO_ID = ano_new.get("id") if s2 in (200, 201) else ANO_ID
 

@@ -7,9 +7,11 @@ from app.core.config import settings
 def get_model_status() -> dict:
     """Return model health status dict."""
     try:
-        model_loaded = inference._face_model is not None
+        backend = inference._backend
     except AttributeError:
-        model_loaded = False
+        backend = None
+    model_loaded = backend is not None
+    backend_name = backend.name if backend is not None else None
 
     try:
         faiss_index_size = inference._faiss_index.ntotal if inference._faiss_index else 0
@@ -18,6 +20,7 @@ def get_model_status() -> dict:
 
     return {
         "model_loaded": model_loaded,
+        "backend": backend_name,
         "faiss_index_size": faiss_index_size,
         "face_match_threshold": settings.face_match_threshold,
         "review_floor": settings.review_floor,

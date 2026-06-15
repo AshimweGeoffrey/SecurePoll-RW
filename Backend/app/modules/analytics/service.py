@@ -1,6 +1,6 @@
-"""Analytics service."""
+"""Analytics service — all breakdowns use single aggregated SQL queries (no N+1)."""
 from sqlalchemy.orm import Session
-from sqlalchemy import select, func
+from sqlalchemy import select, func, case
 from app.db.models.voter import Voter
 from app.db.models.verification import VerificationAttempt
 from app.db.models.geography import District, PollingStation
@@ -10,7 +10,7 @@ from app.core.enums import VoterStatus, VerifyResult, Sex, FraudType, RiskLevel,
 
 
 def get_turnout_stats(db: Session) -> dict:
-    """Return total_registered, total_verified, total_voted, turnout_rate, by_station list."""
+    """Return turnout figures using a single aggregated query per breakdown."""
     total_registered = db.execute(select(func.count(Voter.id))).scalar() or 0
     total_voted = db.execute(
         select(func.count(Voter.id)).where(Voter.status == VoterStatus.voted)
@@ -19,24 +19,29 @@ def get_turnout_stats(db: Session) -> dict:
         select(func.count(Voter.id)).where(Voter.last_verified_at.is_not(None))
     ).scalar() or 0
 
-    stations = db.execute(select(PollingStation)).scalars().all()
+    rows = db.execute(
+        select(
+            PollingStation.id,
+            PollingStation.name,
+            func.count(Voter.id).label("registered"),
+            func.sum(
+                case((Voter.status == VoterStatus.voted, 1), else_=0)
+            ).label("voted"),
+        )
+        .outerjoin(Voter, Voter.polling_station_id == PollingStation.id)
+        .group_by(PollingStation.id, PollingStation.name)
+    ).all()
+
     by_station = []
-    for st in stations:
-        voted_here = db.execute(
-            select(func.count(Voter.id)).where(
-                Voter.polling_station_id == st.id,
-                Voter.status == VoterStatus.voted,
-            )
-        ).scalar() or 0
-        registered_here = db.execute(
-            select(func.count(Voter.id)).where(Voter.polling_station_id == st.id)
-        ).scalar() or 0
+    for row in rows:
+        reg = row.registered or 0
+        voted = int(row.voted or 0)
         by_station.append({
-            "station_id": str(st.id),
-            "station_name": st.name,
-            "registered": registered_here,
-            "voted": voted_here,
-            "turnout_pct": round(voted_here / registered_here * 100, 1) if registered_here else 0,
+            "station_id": str(row.id),
+            "station_name": row.name,
+            "registered": reg,
+            "voted": voted,
+            "turnout_pct": round(voted / reg * 100, 1) if reg else 0,
         })
 
     return {
@@ -49,7 +54,7 @@ def get_turnout_stats(db: Session) -> dict:
 
 
 def get_demographics(db: Session) -> dict:
-    """Return by_sex and by_district breakdowns."""
+    """Return demographic breakdown using aggregated GROUP BY queries."""
     male = db.execute(
         select(func.count(Voter.id)).where(Voter.sex == Sex.male)
     ).scalar() or 0
@@ -57,13 +62,17 @@ def get_demographics(db: Session) -> dict:
         select(func.count(Voter.id)).where(Voter.sex == Sex.female)
     ).scalar() or 0
 
-    districts = db.execute(select(District)).scalars().all()
-    by_district = []
-    for d in districts:
-        count = db.execute(
-            select(func.count(Voter.id)).where(Voter.district_id == d.id)
-        ).scalar() or 0
-        by_district.append({"district": d.name, "registered": count})
+    rows = db.execute(
+        select(
+            District.name,
+            func.count(Voter.id).label("registered"),
+        )
+        .outerjoin(Voter, Voter.district_id == District.id)
+        .group_by(District.id, District.name)
+        .order_by(District.name)
+    ).all()
+
+    by_district = [{"district": r.name, "registered": r.registered or 0} for r in rows]
 
     return {
         "by_sex": {"male": male, "female": female},
@@ -72,23 +81,21 @@ def get_demographics(db: Session) -> dict:
 
 
 def get_verification_stats(db: Session) -> dict:
-    """Return total_attempts, approved/manual_review/rejected counts, avg confidence, approval_rate."""
-    total = db.execute(select(func.count(VerificationAttempt.id))).scalar() or 0
-    approved = db.execute(
-        select(func.count(VerificationAttempt.id)).where(
-            VerificationAttempt.result == VerifyResult.approved)
-    ).scalar() or 0
-    manual_review = db.execute(
-        select(func.count(VerificationAttempt.id)).where(
-            VerificationAttempt.result == VerifyResult.manual_review)
-    ).scalar() or 0
-    rejected = db.execute(
-        select(func.count(VerificationAttempt.id)).where(
-            VerificationAttempt.result == VerifyResult.rejected)
-    ).scalar() or 0
-    avg_conf = db.execute(
-        select(func.avg(VerificationAttempt.confidence))
-    ).scalar()
+    """Return verification stats using a single GROUP BY + AVG query."""
+    rows = db.execute(
+        select(
+            VerificationAttempt.result,
+            func.count(VerificationAttempt.id).label("cnt"),
+        ).group_by(VerificationAttempt.result)
+    ).all()
+
+    counts = {str(r.result.value if hasattr(r.result, "value") else r.result): r.cnt for r in rows}
+    total = sum(counts.values())
+    approved = counts.get("approved", 0)
+    manual_review = counts.get("manual_review", 0)
+    rejected = counts.get("rejected", 0)
+
+    avg_conf = db.execute(select(func.avg(VerificationAttempt.confidence))).scalar()
 
     return {
         "total_attempts": total,
@@ -118,34 +125,33 @@ def get_live_dashboard(db: Session) -> dict:
 
 
 def get_enrollment_stats(db: Session) -> dict:
-    """Return biometric enrollment rates across the voter registry."""
+    """Return biometric enrollment rates using aggregated GROUP BY queries."""
     total_voters = db.execute(select(func.count(Voter.id))).scalar() or 0
     enrolled = db.execute(select(func.count(BiometricTemplate.id))).scalar() or 0
     not_enrolled = max(0, total_voters - enrolled)
     enrollment_rate = round(enrolled / total_voters * 100, 2) if total_voters else 0.0
 
-    # Per-district enrollment breakdown
-    districts = db.execute(select(District)).scalars().all()
-    by_district = []
-    for d in districts:
-        reg_here = db.execute(
-            select(func.count(Voter.id)).where(Voter.district_id == d.id)
-        ).scalar() or 0
-        # Count templates for voters in this district (via join)
-        from sqlalchemy import join
-        enrolled_here = db.execute(
-            select(func.count(BiometricTemplate.id)).where(
-                BiometricTemplate.voter_id.in_(
-                    select(Voter.id).where(Voter.district_id == d.id)
-                )
-            )
-        ).scalar() or 0
-        by_district.append({
-            "district": d.name,
-            "registered": reg_here,
-            "enrolled": enrolled_here,
-            "rate": round(enrolled_here / reg_here * 100, 1) if reg_here else 0,
-        })
+    rows = db.execute(
+        select(
+            District.name,
+            func.count(Voter.id).label("registered"),
+            func.count(BiometricTemplate.id).label("enrolled"),
+        )
+        .outerjoin(Voter, Voter.district_id == District.id)
+        .outerjoin(BiometricTemplate, BiometricTemplate.voter_id == Voter.id)
+        .group_by(District.id, District.name)
+        .order_by(District.name)
+    ).all()
+
+    by_district = [
+        {
+            "district": r.name,
+            "registered": r.registered or 0,
+            "enrolled": r.enrolled or 0,
+            "rate": round((r.enrolled or 0) / r.registered * 100, 1) if r.registered else 0,
+        }
+        for r in rows
+    ]
 
     return {
         "total_voters": total_voters,

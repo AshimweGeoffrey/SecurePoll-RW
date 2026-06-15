@@ -439,7 +439,6 @@ async def create_fraud_case_endpoint(
         polling_station_id=req.polling_station_id,
         detected_by=req.detected_by,
         face_score=req.face_score,
-        description=req.description,
     )
     db.commit()
     db.refresh(case)
