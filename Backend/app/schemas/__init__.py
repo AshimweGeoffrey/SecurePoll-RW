@@ -339,3 +339,70 @@ class VerificationStats(BaseModel):
     manual_review: int
     rejected: int
     average_confidence: float
+
+
+# ============================================================================
+# Geography Update Schemas
+# ============================================================================
+
+class DistrictUpdate(BaseModel):
+    code: Optional[str] = None
+    name: Optional[str] = None
+    boundary_ref: Optional[str] = None
+
+
+class PollingStationUpdate(BaseModel):
+    name: Optional[str] = None
+    lat: Optional[float] = None
+    lon: Optional[float] = None
+    opens_at: Optional[str] = None
+    closes_at: Optional[str] = None
+
+
+# ============================================================================
+# Field Officer Schemas
+# ============================================================================
+
+class FieldOfficerCreate(BaseModel):
+    name: str
+    team: Optional[str] = None
+    assigned_district_id: Optional[UUID] = None
+
+
+class FieldOfficerUpdate(BaseModel):
+    name: Optional[str] = None
+    team: Optional[str] = None
+    assigned_district_id: Optional[UUID] = None
+
+
+class FieldOfficerResponse(BaseModel):
+    id: UUID
+    name: str
+    team: Optional[str]
+    assigned_district_id: Optional[UUID]
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ============================================================================
+# Encryption Key Schemas
+# ============================================================================
+
+class EncryptionKeyCreate(BaseModel):
+    title: str
+    algorithm: str = "AES-256-GCM"
+    scope: Optional[str] = None
+
+
+class EncryptionKeyResponse(BaseModel):
+    id: UUID
+    title: str
+    algorithm: str
+    scope: Optional[str]
+    current_version: int
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

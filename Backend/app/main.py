@@ -69,6 +69,37 @@ _TAGS_METADATA = [
         "description": "Health checks and server status.",
     },
     {
+        "name": "geography",
+        "description": (
+            "Districts and polling station management — reference geography data "
+            "used throughout the voter registry and verification pipeline."
+        ),
+    },
+    {
+        "name": "officers",
+        "description": (
+            "Field officer management.  Officers are assigned to districts and "
+            "conduct biometric enrolment and election-day verification."
+        ),
+    },
+    {
+        "name": "keys",
+        "description": (
+            "AES-256-GCM encryption key registry.  Each key record tracks its "
+            "current version for rotation auditing.  "
+            "The `POST /keys/{id}:rotate` endpoint increments the version and writes "
+            "a `KEY_ROTATED` audit entry.  `GET /keys/health` simulates an HSM health probe."
+        ),
+    },
+    {
+        "name": "ai",
+        "description": (
+            "AI/ML model health and FAISS index status.  "
+            "Use `GET /ai/status` to verify that ArcFace is loaded and check the "
+            "current size of the FAISS deduplication index."
+        ),
+    },
+    {
         "name": "auth",
         "description": (
             "Authentication (JWT + TOTP 2FA), admin user management, RBAC roles, "
@@ -161,22 +192,30 @@ async def health():
     return {"status": "ok", "service": "SecurePoll RW"}
 
 
-# Routers
+# Routers — ordered by dependency (geography before voters before biometrics)
 from app.modules.auth import router as auth_router
+from app.modules.geography import router as geography_router
+from app.modules.officers import router as officers_router
 from app.modules.voters import router as voters_router
 from app.modules.biometrics import router as biometrics_router
 from app.modules.verification import router as verification_router
 from app.modules.fraud import router as fraud_router
 from app.modules.audit import router as audit_router
 from app.modules.analytics import router as analytics_router
+from app.modules.keys import router as keys_router
+from app.modules.ai import router as ai_router
 
 app.include_router(auth_router)
+app.include_router(geography_router)
+app.include_router(officers_router)
 app.include_router(voters_router)
 app.include_router(biometrics_router)
 app.include_router(verification_router)
 app.include_router(fraud_router)
 app.include_router(audit_router)
 app.include_router(analytics_router)
+app.include_router(keys_router)
+app.include_router(ai_router)
 
 
 @app.exception_handler(Exception)

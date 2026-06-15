@@ -498,3 +498,83 @@ async def revoke_session(session_id: uuid.UUID, db: Session = Depends(get_db),
     session.revoked_at = datetime.now(timezone.utc)
     db.commit()
     return {"status": "revoked"}
+
+
+# ---------------------------------------------------------------------------
+# Added endpoints
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/users/{user_id}:activate",
+    summary="Activate a pending admin user account",
+    description=(
+        "Set a user's status from `invitation_pending` to `active`, allowing them to log in.  \n\n"
+        "Typically called after an invited user has confirmed their email or an admin manually "
+        "approves the account.  An audit entry is written."
+    ),
+    response_description="Confirmation that the account is now active.",
+    responses={
+        401: {"description": "Not authenticated."},
+        404: {"description": "User not found."},
+    },
+)
+async def activate_user(
+    user_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user),
+):
+    """Set user status from invitation_pending to active."""
+    user = db.execute(select(AdminUser).where(AdminUser.id == user_id)).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.status = UserStatus.active
+    write_audit(
+        db,
+        action=AuditAction.PERMISSION_CHANGED,
+        actor_type=ActorType.user,
+        actor_id=str(current_user.id),
+        service="Users",
+        detail=f"Activated user: {user.email}",
+    )
+    db.commit()
+    return {"status": "active"}
+
+
+@router.post(
+    "/auth/change-password",
+    summary="Change the current user's own password",
+    description=(
+        "Allows an authenticated user to change their own password by providing their "
+        "current password for verification.  \n\n"
+        "- Returns **400** if `current_password` does not match the stored hash.\n"
+        "- The new password is immediately hashed and persisted.\n"
+        "- An audit entry is written recording the change (no passwords are logged)."
+    ),
+    response_description="Confirmation that the password was changed.",
+    responses={
+        400: {"description": "Current password is incorrect."},
+        401: {"description": "Not authenticated."},
+    },
+)
+async def change_password(
+    current_password: str,
+    new_password: str,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user),
+):
+    """Change current user's own password."""
+    if not verify_password(current_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="Current password incorrect")
+
+    current_user.password_hash = hash_password(new_password)
+    write_audit(
+        db,
+        action=AuditAction.PERMISSION_CHANGED,
+        actor_type=ActorType.user,
+        actor_id=str(current_user.id),
+        service="Auth",
+        detail=f"Password changed: {current_user.email}",
+    )
+    db.commit()
+    return {"status": "password changed"}

@@ -203,3 +203,144 @@ async def get_template_quality(voter_id: uuid.UUID, db: Session = Depends(get_db
         "liveness_passed": template.liveness_passed,
         "captured_at": template.captured_at,
     }
+
+
+# ---------------------------------------------------------------------------
+# Added endpoints
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/templates",
+    summary="List all biometric templates with pagination",
+    description=(
+        "Returns a paginated list of all enrolled biometric templates across all voters.  \n\n"
+        "Each item includes the voter UUID, modality, quality score, liveness result, "
+        "capture timestamp, FAISS index ID, and template UUID."
+    ),
+    response_description="Paginated template list with total count.",
+    responses={
+        401: {"description": "Not authenticated."},
+    },
+)
+async def list_templates(
+    skip: int = 0,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user),
+):
+    """List all biometric templates paginated."""
+    from sqlalchemy import func as sqlfunc
+    total = db.execute(
+        select(sqlfunc.count(BiometricTemplate.id))
+    ).scalar() or 0
+    items = db.execute(
+        select(BiometricTemplate).offset(skip).limit(limit)
+    ).scalars().all()
+    return {
+        "total": total,
+        "items": [
+            {
+                "id": str(t.id),
+                "voter_id": str(t.voter_id),
+                "modality": t.modality.value,
+                "quality_score": t.quality_score,
+                "liveness_passed": t.liveness_passed,
+                "captured_at": t.captured_at.isoformat() if t.captured_at else None,
+                "faiss_id": t.faiss_id,
+            }
+            for t in items
+        ],
+    }
+
+
+@router.delete(
+    "/templates/{voter_id}",
+    summary="Delete the biometric template for a voter",
+    description=(
+        "Permanently removes the face biometric template enrolled for the given voter.  \n\n"
+        "**Warning:** this is a hard delete — the template cannot be recovered.  "
+        "The voter will need to be re-enrolled before they can be biometrically verified.  "
+        "An audit entry is written for every deletion."
+    ),
+    response_description="Confirmation that the template was deleted.",
+    responses={
+        401: {"description": "Not authenticated."},
+        404: {"description": "No biometric template found for this voter."},
+    },
+)
+async def delete_template(
+    voter_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user),
+):
+    """Delete the biometric template for a voter and write audit."""
+    template = db.execute(
+        select(BiometricTemplate).where(BiometricTemplate.voter_id == voter_id)
+    ).scalar_one_or_none()
+    if not template:
+        raise HTTPException(status_code=404, detail="No biometric template found for this voter")
+
+    write_audit(
+        db,
+        action=AuditAction.TEMPLATE_ACCESSED,
+        actor_type=ActorType.user,
+        actor_id=str(current_user.id),
+        service="Biometrics",
+        detail=f"Template deleted for voter: {voter_id}",
+    )
+    db.delete(template)
+    db.commit()
+    return {"status": "deleted", "voter_id": str(voter_id)}
+
+
+@router.post(
+    "/dedup-scan/{voter_id}",
+    summary="Re-run 1:N deduplication scan for a voter",
+    description=(
+        "Re-runs the 1:N FAISS deduplication scan for a voter's existing enrolled template.  \n\n"
+        "Retrieves the stored encrypted template, decrypts and re-embeds the raw bytes, then "
+        "searches the FAISS index for near-duplicates above the configured `dedup_threshold`.  \n\n"
+        "Any hits that are not already recorded as `DuplicateMatch` records will be created, "
+        "together with associated `FraudCase` entries.  "
+        "Returns the list of duplicate hits found."
+    ),
+    response_description="List of duplicate hit dicts, each with voter_id, similarity, and case_id.",
+    responses={
+        400: {"description": "No biometric template enrolled for this voter."},
+        401: {"description": "Not authenticated."},
+        500: {"description": "Template decryption error."},
+    },
+)
+async def dedup_scan(
+    voter_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user),
+):
+    """Re-run 1:N dedup scan for a voter's existing enrolled template."""
+    from app.core.crypto import decrypt_template
+    from app.modules.biometrics.service import run_dedup_scan
+
+    voter = db.execute(select(Voter).where(Voter.id == voter_id)).scalar_one_or_none()
+    if not voter:
+        raise HTTPException(status_code=404, detail="Voter not found")
+
+    template = db.execute(
+        select(BiometricTemplate).where(BiometricTemplate.voter_id == voter_id)
+    ).scalar_one_or_none()
+    if not template:
+        raise HTTPException(status_code=400, detail="No biometric template enrolled for this voter")
+
+    try:
+        stored_bytes = decrypt_template(template.template_blob, b"")
+        embedding = np.frombuffer(stored_bytes, dtype=np.float32)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Template decryption error: {e}")
+
+    faiss_id = template.faiss_id if template.faiss_id is not None else -1
+    hits = run_dedup_scan(db, voter, embedding, faiss_id, settings.dedup_threshold)
+
+    return {
+        "voter_id": str(voter_id),
+        "hits_found": len(hits),
+        "hits": hits,
+    }

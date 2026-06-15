@@ -108,6 +108,25 @@ async def get_demographics(db: Session = Depends(get_db),
 
 
 @router.get(
+    "/live",
+    summary="Live election-day dashboard",
+    description=(
+        "Combined real-time dashboard aggregating turnout, verification performance, "
+        "and active anomaly count in a single response.  Intended for the supervisor "
+        "dashboard displayed on election day.  All figures are computed live."
+    ),
+    response_description="Turnout stats, verification stats, and active anomaly count.",
+    responses={
+        401: {"description": "Not authenticated."},
+    },
+)
+async def get_live_dashboard(db: Session = Depends(get_db),
+                              current_user: AdminUser = Depends(get_current_user)):
+    from app.modules.analytics.service import get_live_dashboard as _live
+    return _live(db)
+
+
+@router.get(
     "/verification",
     summary="Verification attempt statistics",
     description=(
