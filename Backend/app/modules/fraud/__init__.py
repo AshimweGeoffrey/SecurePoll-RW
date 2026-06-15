@@ -11,7 +11,7 @@ from app.core.enums import AuditAction, ActorType, FraudType, RiskLevel, Duplica
 from app.db.models.fraud import FraudCase, DuplicateMatch, AnomalySignal
 from app.db.models.voter import Voter
 from app.db.models.people import AdminUser
-from app.schemas import FraudCaseResponse, DuplicateMatchResponse, MergeRequest
+from app.schemas import FraudCaseResponse, DuplicateMatchResponse, MergeRequest, FraudCaseCreate, AnomalyCreate
 
 router = APIRouter(tags=["fraud"])
 
@@ -401,3 +401,130 @@ async def mute_anomaly(anomaly_id: str, db: Session = Depends(get_db),
     anomaly.is_live = False
     db.commit()
     return {"status": "muted"}
+
+
+@router.post(
+    "/fraud/cases",
+    response_model=FraudCaseResponse,
+    status_code=201,
+    summary="Manually create a fraud case",
+    description=(
+        "Raise a fraud case manually (as opposed to auto-creation by the deduplication pipeline).  \n\n"
+        "A unique case ID is generated in the format `FR-XXXXXX` using a random hex suffix.  "
+        "An audit entry is written with action `CASE_CREATED`."
+    ),
+    response_description="Newly created fraud case.",
+    responses={
+        401: {"description": "Not authenticated."},
+        422: {"description": "Validation error."},
+    },
+)
+async def create_fraud_case_endpoint(
+    req: FraudCaseCreate,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user),
+):
+    from app.modules.fraud.service import create_fraud_case
+    import secrets
+    case_id = f"FR-{secrets.token_hex(3).upper()}"
+    case = create_fraud_case(
+        db,
+        case_id=case_id,
+        fraud_type=req.type,
+        title=req.title,
+        risk_level=req.risk_level,
+        actor_id=str(current_user.id),
+        voter_id=req.voter_id,
+        registration_ref=req.registration_ref,
+        polling_station_id=req.polling_station_id,
+        detected_by=req.detected_by,
+        face_score=req.face_score,
+        description=req.description,
+    )
+    db.commit()
+    db.refresh(case)
+    return case
+
+
+@router.post(
+    "/anomalies",
+    status_code=201,
+    summary="Manually create an anomaly signal",
+    description=(
+        "Create an anomaly signal manually (e.g. from an external monitoring rule or script).  \n\n"
+        "A unique anomaly ID is generated in the format `ANO-XXXXXX`.  "
+        "An audit entry is written with action `ANOMALY_CREATED`."
+    ),
+    response_description="Newly created anomaly signal.",
+    responses={
+        401: {"description": "Not authenticated."},
+        422: {"description": "Validation error."},
+    },
+)
+async def create_anomaly_endpoint(
+    req: AnomalyCreate,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user),
+):
+    from app.modules.fraud.service import create_anomaly
+    import secrets
+    anomaly_id = f"ANO-{secrets.token_hex(3).upper()}"
+    anomaly = create_anomaly(
+        db,
+        anomaly_id=anomaly_id,
+        severity=req.severity,
+        title=req.title,
+        actor_id=str(current_user.id),
+        description=req.description,
+        signal_name=req.signal_name,
+        baseline=req.baseline,
+        observed=req.observed,
+        unit=req.unit,
+        affected_entities=req.affected_entities,
+        recommendation=req.recommendation,
+    )
+    db.commit()
+    db.refresh(anomaly)
+    return {
+        "id": anomaly.id,
+        "severity": anomaly.severity.value,
+        "title": anomaly.title,
+        "description": anomaly.description,
+        "is_live": anomaly.is_live,
+        "signal_name": anomaly.signal_name,
+        "baseline": anomaly.baseline,
+        "observed": anomaly.observed,
+        "unit": anomaly.unit,
+        "affected_entities": anomaly.affected_entities,
+        "recommendation": anomaly.recommendation,
+        "status": anomaly.status,
+        "detected_at": anomaly.detected_at,
+    }
+
+
+@router.delete(
+    "/anomalies/{anomaly_id}",
+    status_code=204,
+    summary="Delete (resolve) an anomaly signal",
+    description=(
+        "Permanently delete an anomaly signal.  An audit entry with action `ANOMALY_RESOLVED` "
+        "is written before deletion.  Returns **204 No Content** on success."
+    ),
+    responses={
+        401: {"description": "Not authenticated."},
+        404: {"description": "Anomaly not found."},
+    },
+)
+async def delete_anomaly_endpoint(
+    anomaly_id: str,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user),
+):
+    from app.modules.fraud.service import delete_anomaly
+    anomaly = db.execute(
+        select(AnomalySignal).where(AnomalySignal.id == anomaly_id)
+    ).scalar_one_or_none()
+    if not anomaly:
+        raise HTTPException(status_code=404, detail="Anomaly not found")
+    delete_anomaly(db, anomaly, actor_id=str(current_user.id))
+    db.commit()

@@ -9,6 +9,9 @@ from app.db.models.verification import VerificationAttempt
 from app.db.models.geography import District, PollingStation
 from app.db.models.people import AdminUser
 from app.core.enums import VoterStatus, VerifyResult, Sex
+from app.modules.analytics.service import (
+    get_enrollment_stats, get_fraud_stats, get_live_dashboard as _live,
+)
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -122,7 +125,6 @@ async def get_demographics(db: Session = Depends(get_db),
 )
 async def get_live_dashboard(db: Session = Depends(get_db),
                               current_user: AdminUser = Depends(get_current_user)):
-    from app.modules.analytics.service import get_live_dashboard as _live
     return _live(db)
 
 
@@ -169,3 +171,42 @@ async def get_verification_stats(db: Session = Depends(get_db),
         "average_confidence": round(float(avg_conf), 4) if avg_conf else 0.0,
         "approval_rate": round(approved / total * 100, 2) if total else 0,
     }
+
+
+@router.get(
+    "/enrollment",
+    summary="Biometric enrollment statistics",
+    description=(
+        "Returns enrollment coverage across the voter registry:  \n\n"
+        "- `total_voters` — total voters registered.\n"
+        "- `enrolled` — voters with at least one biometric template.\n"
+        "- `not_enrolled` — voters pending biometric registration.\n"
+        "- `enrollment_rate` — percentage enrolled.\n"
+        "- `by_district` — per-district enrolled count and rate."
+    ),
+    response_description="Enrollment coverage statistics.",
+    responses={401: {"description": "Not authenticated."}},
+)
+async def get_enrollment(db: Session = Depends(get_db),
+                          current_user: AdminUser = Depends(get_current_user)):
+    return get_enrollment_stats(db)
+
+
+@router.get(
+    "/fraud",
+    summary="Fraud and anomaly analytics summary",
+    description=(
+        "Returns aggregate fraud metrics:  \n\n"
+        "- `total_cases` — all fraud cases ever raised.\n"
+        "- `open_cases` / `resolved_cases` — case status breakdown.\n"
+        "- `by_type` — count per `FraudType`.\n"
+        "- `by_risk_level` — count per `RiskLevel`.\n"
+        "- `total_duplicates` — duplicate biometric matches.\n"
+        "- `active_anomalies` — live anomaly signals."
+    ),
+    response_description="Fraud and anomaly aggregate metrics.",
+    responses={401: {"description": "Not authenticated."}},
+)
+async def get_fraud_analytics(db: Session = Depends(get_db),
+                               current_user: AdminUser = Depends(get_current_user)):
+    return get_fraud_stats(db)

@@ -4,8 +4,9 @@ from sqlalchemy import select, func
 from app.db.models.voter import Voter
 from app.db.models.verification import VerificationAttempt
 from app.db.models.geography import District, PollingStation
-from app.db.models.fraud import AnomalySignal
-from app.core.enums import VoterStatus, VerifyResult, Sex
+from app.db.models.fraud import AnomalySignal, FraudCase, DuplicateMatch
+from app.db.models.biometric import BiometricTemplate
+from app.core.enums import VoterStatus, VerifyResult, Sex, FraudType, RiskLevel, CaseResolution
 
 
 def get_turnout_stats(db: Session) -> dict:
@@ -112,5 +113,83 @@ def get_live_dashboard(db: Session) -> dict:
     return {
         "turnout": turnout,
         "verification": verification,
+        "active_anomalies": active_anomalies,
+    }
+
+
+def get_enrollment_stats(db: Session) -> dict:
+    """Return biometric enrollment rates across the voter registry."""
+    total_voters = db.execute(select(func.count(Voter.id))).scalar() or 0
+    enrolled = db.execute(select(func.count(BiometricTemplate.id))).scalar() or 0
+    not_enrolled = max(0, total_voters - enrolled)
+    enrollment_rate = round(enrolled / total_voters * 100, 2) if total_voters else 0.0
+
+    # Per-district enrollment breakdown
+    districts = db.execute(select(District)).scalars().all()
+    by_district = []
+    for d in districts:
+        reg_here = db.execute(
+            select(func.count(Voter.id)).where(Voter.district_id == d.id)
+        ).scalar() or 0
+        # Count templates for voters in this district (via join)
+        from sqlalchemy import join
+        enrolled_here = db.execute(
+            select(func.count(BiometricTemplate.id)).where(
+                BiometricTemplate.voter_id.in_(
+                    select(Voter.id).where(Voter.district_id == d.id)
+                )
+            )
+        ).scalar() or 0
+        by_district.append({
+            "district": d.name,
+            "registered": reg_here,
+            "enrolled": enrolled_here,
+            "rate": round(enrolled_here / reg_here * 100, 1) if reg_here else 0,
+        })
+
+    return {
+        "total_voters": total_voters,
+        "enrolled": enrolled,
+        "not_enrolled": not_enrolled,
+        "enrollment_rate": enrollment_rate,
+        "by_district": by_district,
+    }
+
+
+def get_fraud_stats(db: Session) -> dict:
+    """Return fraud case counts, risk level breakdown, open vs resolved, and active anomalies."""
+    total_cases = db.execute(select(func.count(FraudCase.id))).scalar() or 0
+
+    by_type = {}
+    for ft in FraudType:
+        cnt = db.execute(
+            select(func.count(FraudCase.id)).where(FraudCase.type == ft)
+        ).scalar() or 0
+        by_type[ft.value] = cnt
+
+    by_risk = {}
+    for rl in RiskLevel:
+        cnt = db.execute(
+            select(func.count(FraudCase.id)).where(FraudCase.risk_level == rl)
+        ).scalar() or 0
+        by_risk[rl.value] = cnt
+
+    open_cases = db.execute(
+        select(func.count(FraudCase.id)).where(FraudCase.resolution.is_(None))
+    ).scalar() or 0
+    resolved_cases = total_cases - open_cases
+
+    total_duplicates = db.execute(select(func.count(DuplicateMatch.id))).scalar() or 0
+    active_anomalies = db.execute(
+        select(func.count(AnomalySignal.id)).where(AnomalySignal.is_live == True)  # noqa: E712
+    ).scalar() or 0
+
+    return {
+        "total_cases": total_cases,
+        "open_cases": open_cases,
+        "resolved_cases": resolved_cases,
+        "by_type": by_type,
+        "by_risk_level": by_risk,
+        "total_duplicates": total_duplicates,
         "active_anomalies": active_anomalies,
     }

@@ -20,6 +20,7 @@ from app.modules.geography.service import (
     get_districts, create_district, get_district, update_district,
     get_polling_stations, create_polling_station,
     get_polling_station, update_polling_station, set_station_status,
+    get_stations_for_district, delete_district, delete_polling_station,
 )
 
 router = APIRouter(tags=["geography"])
@@ -423,3 +424,108 @@ async def station_summary(
         "votes_cast": votes_cast,
         "pending": station.registered_count - votes_cast,
     }
+
+
+@router.get(
+    "/districts/{district_id}/stations",
+    summary="List all polling stations for a district",
+    description=(
+        "Returns all polling stations belonging to the given district.  "
+        "Returns **404** if the district does not exist."
+    ),
+    response_description="List of polling station records for the district.",
+    responses={
+        401: {"description": "Not authenticated."},
+        404: {"description": "District not found."},
+    },
+)
+async def list_stations_for_district(
+    district_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user),
+):
+    district = get_district(db, district_id)
+    if not district:
+        raise HTTPException(status_code=404, detail="District not found")
+    stations = get_stations_for_district(db, district_id)
+    return {
+        "district_id": str(district_id),
+        "total": len(stations),
+        "items": [PollingStationResponse.model_validate(s) for s in stations],
+    }
+
+
+@router.delete(
+    "/districts/{district_id}",
+    status_code=204,
+    summary="Delete a district",
+    description=(
+        "Permanently delete a district.  \n\n"
+        "Returns **400** if the district still has polling stations assigned to it — "
+        "remove all stations first.  Returns **404** if the district does not exist."
+    ),
+    responses={
+        400: {"description": "District has polling stations; remove them first."},
+        401: {"description": "Not authenticated."},
+        404: {"description": "District not found."},
+    },
+)
+async def delete_district_endpoint(
+    district_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user),
+):
+    district = get_district(db, district_id)
+    if not district:
+        raise HTTPException(status_code=404, detail="District not found")
+    try:
+        delete_district(db, district)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    write_audit(
+        db,
+        action=AuditAction.RECORD_DELETED,
+        actor_type=ActorType.user,
+        actor_id=str(current_user.id),
+        service="Geography",
+        detail=f"Deleted district: {district.code}",
+    )
+    db.commit()
+
+
+@router.delete(
+    "/polling-stations/{station_id}",
+    status_code=204,
+    summary="Delete a polling station",
+    description=(
+        "Permanently delete a polling station.  \n\n"
+        "Returns **400** if the station still has voters registered to it — "
+        "reassign them first.  Returns **404** if the station does not exist."
+    ),
+    responses={
+        400: {"description": "Station has registered voters; reassign them first."},
+        401: {"description": "Not authenticated."},
+        404: {"description": "Polling station not found."},
+    },
+)
+async def delete_polling_station_endpoint(
+    station_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user),
+):
+    station = get_polling_station(db, station_id)
+    if not station:
+        raise HTTPException(status_code=404, detail="Polling station not found")
+    try:
+        delete_polling_station(db, station)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    write_audit(
+        db,
+        action=AuditAction.RECORD_DELETED,
+        actor_type=ActorType.user,
+        actor_id=str(current_user.id),
+        service="Geography",
+        detail=f"Deleted station: {station.code}",
+    )
+    db.commit()

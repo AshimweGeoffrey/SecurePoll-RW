@@ -124,3 +124,69 @@ def run_dedup_scan(db: Session, voter: Voter, embedding: np.ndarray,
         db.commit()
 
     return hits
+
+
+def enrollment_stats(db: Session) -> dict:
+    """Return enrollment counts: total voters, enrolled, not_enrolled, by_modality."""
+    from app.db.models.voter import Voter as VoterModel
+    total_voters = db.execute(select(func.count(VoterModel.id))).scalar() or 0
+    enrolled = db.execute(select(func.count(BiometricTemplate.id))).scalar() or 0
+    not_enrolled = max(0, total_voters - enrolled)
+    by_modality = {}
+    for m in Modality:
+        cnt = db.execute(
+            select(func.count(BiometricTemplate.id)).where(BiometricTemplate.modality == m)
+        ).scalar() or 0
+        by_modality[m.value] = cnt
+    enrollment_rate = round(enrolled / total_voters * 100, 2) if total_voters else 0.0
+    return {
+        "total_voters": total_voters,
+        "enrolled": enrolled,
+        "not_enrolled": not_enrolled,
+        "enrollment_rate": enrollment_rate,
+        "by_modality": by_modality,
+    }
+
+
+def re_enroll(
+    db: Session,
+    voter: Voter,
+    template_blob: bytes,
+    quality_score: float,
+    liveness_passed: bool,
+    faiss_id: int,
+    actor_id: str,
+) -> BiometricTemplate:
+    """Replace the existing biometric template for a voter, writing a re-enrolment audit entry."""
+    existing = db.execute(
+        select(BiometricTemplate).where(
+            BiometricTemplate.voter_id == voter.id,
+            BiometricTemplate.modality == Modality.face,
+        )
+    ).scalar_one_or_none()
+
+    if existing:
+        db.delete(existing)
+        db.flush()
+
+    template = BiometricTemplate(
+        voter_id=voter.id,
+        modality=Modality.face,
+        template_blob=template_blob,
+        quality_score=quality_score,
+        liveness_passed=liveness_passed,
+        captured_at=datetime.now(timezone.utc),
+        faiss_id=faiss_id,
+    )
+    db.add(template)
+    write_audit(
+        db,
+        action=AuditAction.BIOMETRIC_RE_ENROLLED,
+        actor_type=ActorType.user,
+        actor_id=actor_id,
+        service="Biometrics",
+        detail=f"Re-enrolled face for voter: {voter.registration_ref}",
+    )
+    db.commit()
+    db.refresh(template)
+    return template

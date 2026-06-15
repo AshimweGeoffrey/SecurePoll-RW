@@ -135,3 +135,27 @@ def revoke_session(db: Session, session: SessionModel) -> SessionModel:
     db.commit()
     db.refresh(session)
     return session
+
+
+def soft_delete_user(db: Session, user: AdminUser, deleted_by_id: str) -> None:
+    """Soft-delete an admin user: suspend + write USER_DELETED audit."""
+    user.status = UserStatus.suspended
+    write_audit(
+        db,
+        action=AuditAction.USER_DELETED,
+        actor_type=ActorType.user,
+        actor_id=deleted_by_id,
+        service="Users",
+        detail=f"User soft-deleted: {user.email}",
+    )
+    db.commit()
+
+
+def get_totp_uri(user: AdminUser, issuer: str = "SecurePoll RW") -> dict:
+    """Return TOTP provisioning URI and secret for QR code generation."""
+    from app.core.security import get_totp
+    if not user.totp_secret:
+        raise ValueError("User has no TOTP secret. Call reset-mfa first.")
+    totp = get_totp(user.totp_secret)
+    uri = totp.provisioning_uri(user.email, issuer_name=issuer)
+    return {"totp_secret": user.totp_secret, "provisioning_uri": uri, "issuer": issuer}

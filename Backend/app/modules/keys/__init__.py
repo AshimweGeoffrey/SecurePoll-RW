@@ -8,8 +8,8 @@ from app.core.audit import write_audit
 from app.core.deps import get_current_user
 from app.core.enums import AuditAction, ActorType
 from app.db.models.people import AdminUser
-from app.schemas import EncryptionKeyCreate, EncryptionKeyResponse
-from app.modules.keys.service import list_keys, create_key, get_key, rotate_key
+from app.schemas import EncryptionKeyCreate, EncryptionKeyResponse, EncryptionKeyUpdate
+from app.modules.keys.service import list_keys, create_key, get_key, rotate_key, update_key, delete_key
 
 router = APIRouter(tags=["keys"])
 
@@ -181,3 +181,70 @@ async def rotate_key_endpoint(
     db.commit()
     db.refresh(key)
     return key
+
+
+@router.patch(
+    "/keys/{key_id}",
+    response_model=EncryptionKeyResponse,
+    summary="Update an encryption key's metadata",
+    description=(
+        "Partially update the metadata of an encryption key record (PATCH semantics).  \n\n"
+        "Mutable fields: `title`, `scope`.  Omitted fields are left unchanged.  "
+        "Returns **404** if the key does not exist."
+    ),
+    response_description="Updated encryption key record.",
+    responses={
+        401: {"description": "Not authenticated."},
+        404: {"description": "Encryption key not found."},
+    },
+)
+async def update_key_endpoint(
+    key_id: uuid.UUID,
+    req: EncryptionKeyUpdate,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user),
+):
+    key = get_key(db, key_id)
+    if not key:
+        raise HTTPException(status_code=404, detail="Encryption key not found")
+    fields = req.model_dump(exclude_unset=True)
+    key = update_key(db, key, **fields)
+    db.commit()
+    db.refresh(key)
+    return key
+
+
+@router.delete(
+    "/keys/{key_id}",
+    status_code=204,
+    summary="Delete an encryption key record",
+    description=(
+        "Permanently remove an encryption key metadata record.  \n\n"
+        "**Warning:** this does not rotate or destroy the underlying key material in the HSM — "
+        "it only removes the tracking record.  An audit entry with action `RECORD_DELETED` is "
+        "written before deletion.  Returns **204 No Content** on success."
+    ),
+    responses={
+        401: {"description": "Not authenticated."},
+        404: {"description": "Encryption key not found."},
+    },
+)
+async def delete_key_endpoint(
+    key_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user),
+):
+    key = get_key(db, key_id)
+    if not key:
+        raise HTTPException(status_code=404, detail="Encryption key not found")
+
+    write_audit(
+        db,
+        action=AuditAction.RECORD_DELETED,
+        actor_type=ActorType.user,
+        actor_id=str(current_user.id),
+        service="Keys",
+        detail=f"Key deleted: {key.title} (id={key_id})",
+    )
+    delete_key(db, key)
+    db.commit()

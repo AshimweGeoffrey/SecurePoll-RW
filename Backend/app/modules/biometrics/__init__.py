@@ -344,3 +344,87 @@ async def dedup_scan(
         "hits_found": len(hits),
         "hits": hits,
     }
+
+
+@router.get(
+    "/stats",
+    summary="Biometric enrollment statistics",
+    description=(
+        "Returns enrollment coverage across the entire voter registry:  \n\n"
+        "- `total_voters` — all registered voters.\n"
+        "- `enrolled` — voters with at least one biometric template on file.\n"
+        "- `not_enrolled` — voters still pending biometric registration.\n"
+        "- `enrollment_rate` — percentage enrolled.\n"
+        "- `by_modality` — count of enrolled templates per biometric modality."
+    ),
+    response_description="Enrollment coverage statistics.",
+    responses={401: {"description": "Not authenticated."}},
+)
+async def enrollment_stats(
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user),
+):
+    from app.modules.biometrics.service import enrollment_stats as _stats
+    return _stats(db)
+
+
+@router.put(
+    "/enroll",
+    response_model=EnrollmentResponse,
+    summary="Re-enrol a voter's face biometric (replace existing template)",
+    description=(
+        "Replaces the existing face biometric template for a voter with a new one.  \n\n"
+        "The pipeline is identical to `POST /biometrics/enroll` but deletes the previous "
+        "template before storing the new one.  A `BIOMETRIC_RE_ENROLLED` audit entry is "
+        "written.  Use this when a voter's face has changed significantly (e.g. after surgery "
+        "or a long time since original enrolment)."
+    ),
+    response_description="Re-enrolment confirmation with quality score and liveness result.",
+    responses={
+        400: {"description": "Voter not found, invalid image, no face detected, or liveness failure."},
+        401: {"description": "Not authenticated."},
+    },
+)
+async def re_enroll_face(
+    voter_id: uuid.UUID = Form(...),
+    face_image: str = Form(..., description="Base64-encoded face image"),
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user),
+):
+    from app.modules.biometrics.service import re_enroll as _re_enroll
+
+    voter = db.execute(select(Voter).where(Voter.id == voter_id)).scalar_one_or_none()
+    if not voter:
+        raise HTTPException(status_code=404, detail="Voter not found")
+
+    try:
+        image_bytes = base64.b64decode(face_image)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid base64 image: {e}")
+
+    try:
+        embedding = inference.embed_face(image_bytes)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    liveness_result, _ = inference.check_liveness(image_bytes)
+    if liveness_result == "spoof":
+        raise HTTPException(status_code=400, detail="Liveness check failed: spoof detected")
+
+    quality_score = float(min(np.linalg.norm(embedding), 1.0))
+    template_blob = encrypt_template(embedding.tobytes())
+    faiss_id = inference.faiss_add(embedding)
+
+    template = _re_enroll(
+        db, voter, template_blob, quality_score,
+        liveness_result == "live", faiss_id, str(current_user.id),
+    )
+    inference.faiss_save()
+
+    return EnrollmentResponse(
+        voter_id=template.voter_id,
+        modality=template.modality,
+        quality_score=template.quality_score,
+        liveness_passed=template.liveness_passed,
+        captured_at=template.captured_at,
+    )

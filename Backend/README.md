@@ -216,6 +216,7 @@ GET  /audit:export                   Download audit CSV
 GET  /analytics/turnout              Real-time voter turnout
 GET  /analytics/demographics         Demographic breakdown (sex, district)
 GET  /analytics/verification         Verification performance metrics
+GET  /analytics/live                 Combined live dashboard (turnout + verification + anomalies)
 
 # System
 GET  /health                         Service health check
@@ -241,7 +242,7 @@ make test-integration
 make coverage
 ```
 
-Test counts: **74 unit tests** + **108 integration tests** = **182 total**
+Test counts: **74 unit tests** + **215 integration tests** = **289 total**
 
 ---
 

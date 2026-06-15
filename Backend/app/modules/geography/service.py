@@ -101,3 +101,33 @@ def set_station_status(
     station.status = status
     db.flush()
     return station
+
+
+def get_stations_for_district(db: Session, district_id: uuid.UUID) -> List[PollingStation]:
+    """Return all polling stations belonging to a district."""
+    return db.execute(
+        select(PollingStation).where(PollingStation.district_id == district_id)
+    ).scalars().all()
+
+
+def delete_district(db: Session, district: District) -> None:
+    """Delete a district. Raises ValueError if it has polling stations."""
+    station_count = db.execute(
+        select(func.count(PollingStation.id)).where(PollingStation.district_id == district.id)
+    ).scalar() or 0
+    if station_count > 0:
+        raise ValueError(f"Cannot delete district with {station_count} polling station(s). Remove stations first.")
+    db.delete(district)
+    db.flush()
+
+
+def delete_polling_station(db: Session, station: PollingStation) -> None:
+    """Delete a polling station. Raises ValueError if voters are assigned."""
+    from app.db.models.voter import Voter
+    voter_count = db.execute(
+        select(func.count(Voter.id)).where(Voter.polling_station_id == station.id)
+    ).scalar() or 0
+    if voter_count > 0:
+        raise ValueError(f"Cannot delete station with {voter_count} registered voter(s). Reassign voters first.")
+    db.delete(station)
+    db.flush()

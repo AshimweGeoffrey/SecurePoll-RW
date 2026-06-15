@@ -1,4 +1,5 @@
 """AI/ML service."""
+from typing import Optional
 import ml.inference as inference
 from app.core.config import settings
 
@@ -32,3 +33,22 @@ def get_thresholds() -> dict:
         "review_floor": settings.review_floor,
         "dedup_threshold": settings.dedup_threshold,
     }
+
+
+def update_thresholds(
+    face_match_threshold: Optional[float] = None,
+    review_floor: Optional[float] = None,
+    dedup_threshold: Optional[float] = None,
+) -> dict:
+    """Update threshold values at runtime (in-process override via settings mutation).
+
+    Changes take effect immediately but are not persisted — they reset on restart.
+    To persist, update environment variables or the .env file.
+    """
+    if face_match_threshold is not None:
+        settings.face_match_threshold = face_match_threshold
+    if review_floor is not None:
+        settings.review_floor = review_floor
+    if dedup_threshold is not None:
+        settings.dedup_threshold = dedup_threshold
+    return get_thresholds()

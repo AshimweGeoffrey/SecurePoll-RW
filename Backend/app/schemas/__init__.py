@@ -406,3 +406,46 @@ class EncryptionKeyResponse(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class EncryptionKeyUpdate(BaseModel):
+    title: Optional[str] = None
+    scope: Optional[str] = None
+
+
+# ============================================================================
+# Fraud Manual Creation Schemas
+# ============================================================================
+
+class FraudCaseCreate(BaseModel):
+    type: Any  # FraudType value string
+    title: str
+    risk_level: Any  # RiskLevel value string
+    voter_id: Optional[UUID] = None
+    registration_ref: Optional[str] = None
+    polling_station_id: Optional[UUID] = None
+    detected_by: Optional[str] = None
+    face_score: Optional[float] = None
+    description: Optional[str] = None
+
+
+class AnomalyCreate(BaseModel):
+    severity: Any  # AnomalySeverity value string
+    title: str
+    description: Optional[str] = None
+    signal_name: Optional[str] = None
+    baseline: Optional[float] = None
+    observed: Optional[float] = None
+    unit: Optional[str] = None
+    affected_entities: list[str] = []
+    recommendation: Optional[str] = None
+
+
+# ============================================================================
+# AI Threshold Update Schema
+# ============================================================================
+
+class ThresholdUpdate(BaseModel):
+    face_match_threshold: Optional[float] = None
+    review_floor: Optional[float] = None
+    dedup_threshold: Optional[float] = None

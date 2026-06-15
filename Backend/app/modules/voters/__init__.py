@@ -404,3 +404,85 @@ async def registry_health(db: Session = Depends(get_db),
         "blocked": blocked,
         "data_quality": "ok" if total > 0 else "empty",
     }
+
+
+@router.post(
+    "/voters/{voter_id}:flag",
+    summary="Flag a voter for manual review",
+    description=(
+        "Set the voter's status to `flagged`, marking them for manual review.  "
+        "A `reason` query parameter is required and logged to the audit trail.  "
+        "A flagged voter can still be verified but is highlighted in reports.  "
+        "Use `POST /voters/{voter_id}:restore` to clear the flag."
+    ),
+    response_description="Confirmation of the flag action.",
+    responses={
+        401: {"description": "Not authenticated."},
+        404: {"description": "Voter not found."},
+    },
+)
+async def flag_voter(
+    voter_id: uuid.UUID,
+    reason: str,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user),
+):
+    voter = db.execute(select(Voter).where(Voter.id == voter_id)).scalar_one_or_none()
+    if not voter:
+        raise HTTPException(status_code=404, detail="Voter not found")
+    voter.status = VoterStatus.flagged
+    write_audit(
+        db, action=AuditAction.VOTER_FLAGGED, actor_type=ActorType.user,
+        actor_id=str(current_user.id), service="Voters",
+        detail=f"Flagged {voter.registration_ref}: {reason}",
+    )
+    db.commit()
+    return {"status": "flagged", "voter_id": str(voter_id), "reason": reason}
+
+
+@router.get(
+    "/voters/{voter_id}/verifications",
+    summary="Verification history for a voter",
+    description=(
+        "Returns all biometric verification attempts recorded for a specific voter, "
+        "ordered newest-first.  Includes result, confidence, liveness, and timestamp for each."
+    ),
+    response_description="List of verification attempts for the voter.",
+    responses={
+        401: {"description": "Not authenticated."},
+        404: {"description": "Voter not found."},
+    },
+)
+async def voter_verification_history(
+    voter_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user),
+):
+    voter = db.execute(select(Voter).where(Voter.id == voter_id)).scalar_one_or_none()
+    if not voter:
+        raise HTTPException(status_code=404, detail="Voter not found")
+
+    from app.db.models.verification import VerificationAttempt
+    attempts = db.execute(
+        select(VerificationAttempt)
+        .where(VerificationAttempt.voter_id == voter_id)
+        .order_by(VerificationAttempt.created_at.desc())
+    ).scalars().all()
+
+    return {
+        "voter_id": str(voter_id),
+        "total": len(attempts),
+        "attempts": [
+            {
+                "id": str(a.id),
+                "result": a.result.value,
+                "confidence": a.confidence,
+                "face_score": a.face_score,
+                "liveness": a.liveness.value,
+                "review_required": a.review_required,
+                "polling_station_id": str(a.polling_station_id) if a.polling_station_id else None,
+                "created_at": a.created_at.isoformat() if a.created_at else None,
+            }
+            for a in attempts
+        ],
+    }

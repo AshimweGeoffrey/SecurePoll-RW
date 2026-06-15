@@ -169,7 +169,16 @@ async def refresh_token(current_user: AdminUser = Depends(get_current_user)):
     ),
     response_description="Confirmation that the logout signal was received.",
 )
-async def logout():
+async def logout(
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user),
+):
+    write_audit(
+        db, action=AuditAction.LOGOUT, actor_type=ActorType.user,
+        actor_id=str(current_user.id), service="Auth",
+        detail=f"Logout: {current_user.email}",
+    )
+    db.commit()
     return {"status": "logged out"}
 
 
@@ -578,3 +587,123 @@ async def change_password(
     )
     db.commit()
     return {"status": "password changed"}
+
+
+@router.get(
+    "/users/me",
+    response_model=AdminUserResponse,
+    summary="Get the currently authenticated user's profile",
+    description=(
+        "Returns the full profile of the user identified by the bearer token in the "
+        "`Authorization` header.  Useful for UI profile pages and permission checks."
+    ),
+    response_description="Current user's admin profile.",
+    responses={401: {"description": "Not authenticated."}},
+)
+async def get_me(current_user: AdminUser = Depends(get_current_user)):
+    return current_user
+
+
+@router.get(
+    "/users/{user_id}:totp-uri",
+    summary="Get TOTP provisioning URI for QR code display",
+    description=(
+        "Returns the TOTP provisioning URI and secret for the target user so a frontend can "
+        "render a QR code for authenticator app setup.  \n\n"
+        "Requires that `POST /users/{user_id}:reset-mfa` has already been called to generate "
+        "the secret.  Returns **400** if no secret exists yet."
+    ),
+    response_description="Provisioning URI and raw TOTP secret.",
+    responses={
+        400: {"description": "No TOTP secret set — call :reset-mfa first."},
+        401: {"description": "Not authenticated."},
+        404: {"description": "User not found."},
+    },
+)
+async def get_totp_uri(
+    user_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user),
+):
+    user = db.execute(select(AdminUser).where(AdminUser.id == user_id)).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if not user.totp_secret:
+        raise HTTPException(status_code=400, detail="No TOTP secret set — call :reset-mfa first")
+    from app.core.security import get_totp_uri as _build_uri
+    uri = _build_uri(user.totp_secret, user.email)
+    return {"totp_secret": user.totp_secret, "provisioning_uri": uri}
+
+
+@router.delete(
+    "/users/{user_id}",
+    status_code=204,
+    summary="Soft-delete an admin user account",
+    description=(
+        "Soft-deletes an admin user by suspending the account and writing a `USER_DELETED` "
+        "audit entry.  The row is retained for audit chain integrity.  \n\n"
+        "**Constraints:**\n"
+        "- Cannot delete your own account.\n"
+        "- Cannot delete the last active super-admin (guard not implemented — use with care)."
+    ),
+    response_description="No content — user soft-deleted.",
+    responses={
+        400: {"description": "Cannot delete yourself."},
+        401: {"description": "Not authenticated."},
+        404: {"description": "User not found."},
+    },
+)
+async def delete_user(
+    user_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user),
+):
+    user = db.execute(select(AdminUser).where(AdminUser.id == user_id)).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot delete yourself")
+    user.status = UserStatus.suspended
+    write_audit(
+        db, action=AuditAction.USER_DELETED, actor_type=ActorType.user,
+        actor_id=str(current_user.id), service="Users",
+        detail=f"User soft-deleted: {user.email}",
+    )
+    db.commit()
+
+
+@router.delete(
+    "/roles/{role_id}",
+    status_code=204,
+    summary="Delete an RBAC role",
+    description=(
+        "Hard-deletes a role by its string ID.  \n\n"
+        "Returns **400** if any admin users are currently assigned to this role — "
+        "reassign those users to a different role before deleting."
+    ),
+    response_description="No content — role deleted.",
+    responses={
+        400: {"description": "Role is in use by one or more users."},
+        401: {"description": "Not authenticated."},
+        404: {"description": "Role not found."},
+    },
+)
+async def delete_role(
+    role_id: str,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user),
+):
+    from sqlalchemy import func as sqlfunc
+    role = db.execute(select(Role).where(Role.id == role_id)).scalar_one_or_none()
+    if not role:
+        raise HTTPException(status_code=404, detail="Role not found")
+    user_count = db.execute(
+        select(sqlfunc.count(AdminUser.id)).where(AdminUser.role_id == role_id)
+    ).scalar() or 0
+    if user_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Role is assigned to {user_count} user(s). Reassign them first.",
+        )
+    db.delete(role)
+    db.commit()

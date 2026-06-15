@@ -36,3 +36,19 @@ def rotate_key(db: Session, key: EncryptionKey) -> EncryptionKey:
     key.updated_at = datetime.now(timezone.utc)
     db.flush()
     return key
+
+
+def update_key(db: Session, key: EncryptionKey, **fields) -> EncryptionKey:
+    """Update mutable metadata fields (title, scope) on a key record."""
+    for k, v in fields.items():
+        if v is not None:
+            setattr(key, k, v)
+    key.updated_at = datetime.now(timezone.utc)
+    db.flush()
+    return key
+
+
+def delete_key(db: Session, key: EncryptionKey) -> None:
+    """Hard-delete a key record (decommission)."""
+    db.delete(key)
+    db.flush()

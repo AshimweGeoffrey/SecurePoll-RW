@@ -127,3 +127,31 @@ def registry_stats(db: Session) -> dict:
         ).scalar() or 0
         breakdown[vs.value] = count
     return {"total": total, "by_status": breakdown}
+
+
+def flag_voter(db: Session, voter: Voter, actor_id: str, reason: str = "") -> Voter:
+    """Set voter status to flagged and write audit."""
+    voter.status = VoterStatus.flagged
+    from app.core.enums import AuditAction
+    write_audit(
+        db,
+        action=AuditAction.VOTER_FLAGGED,
+        actor_type=ActorType.user,
+        actor_id=actor_id,
+        service="Voters",
+        detail=f"Flagged {voter.registration_ref}: {reason}",
+    )
+    db.commit()
+    db.refresh(voter)
+    return voter
+
+
+def get_voter_verifications(db: Session, voter_id: uuid.UUID) -> list:
+    """Return all verification attempts for a voter, newest first."""
+    from app.db.models.verification import VerificationAttempt
+    attempts = db.execute(
+        select(VerificationAttempt)
+        .where(VerificationAttempt.voter_id == voter_id)
+        .order_by(VerificationAttempt.created_at.desc())
+    ).scalars().all()
+    return list(attempts)

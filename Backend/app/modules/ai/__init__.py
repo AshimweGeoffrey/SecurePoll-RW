@@ -10,7 +10,8 @@ from app.core.audit import write_audit
 from app.core.enums import AuditAction, ActorType
 from app.db.models.biometric import BiometricTemplate
 from app.db.models.people import AdminUser
-from app.modules.ai.service import get_model_status, get_thresholds
+from app.modules.ai.service import get_model_status, get_thresholds, update_thresholds
+from app.schemas import ThresholdUpdate
 import ml.inference as inference
 
 router = APIRouter(prefix="/ai", tags=["ai"])
@@ -133,3 +134,46 @@ async def ai_healthcheck(
         "index_size": index_size,
         "checked_at": checked_at,
     }
+
+
+@router.put(
+    "/thresholds",
+    summary="Update AI decision thresholds at runtime",
+    description=(
+        "Override one or more biometric decision thresholds for the current server process.  \n\n"
+        "**Fields (all optional):**\n"
+        "- `face_match_threshold` — minimum cosine similarity for an `approved` decision (0.0–1.0).\n"
+        "- `review_floor` — lower bound for `manual_review`; scores below this are `rejected` (0.0–1.0).\n"
+        "- `dedup_threshold` — similarity at which two templates are flagged as duplicates (0.0–1.0).\n\n"
+        "**Warning:** changes are applied to the in-process `settings` object and take effect "
+        "immediately but are **not persisted** — they reset to environment-variable defaults on "
+        "server restart.  To persist thresholds, update the `.env` file or environment variables.  \n\n"
+        "An audit entry is written recording old and new values."
+    ),
+    response_description="Current threshold values after the update.",
+    responses={
+        401: {"description": "Not authenticated."},
+        422: {"description": "Validation error — values must be between 0.0 and 1.0."},
+    },
+)
+async def update_thresholds_endpoint(
+    req: ThresholdUpdate,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user),
+):
+    old = get_thresholds()
+    updated = update_thresholds(
+        face_match_threshold=req.face_match_threshold,
+        review_floor=req.review_floor,
+        dedup_threshold=req.dedup_threshold,
+    )
+    write_audit(
+        db,
+        action=AuditAction.THRESHOLD_UPDATED,
+        actor_type=ActorType.user,
+        actor_id=str(current_user.id),
+        service="AI",
+        detail=f"Thresholds updated: {old} → {updated}",
+    )
+    db.commit()
+    return updated

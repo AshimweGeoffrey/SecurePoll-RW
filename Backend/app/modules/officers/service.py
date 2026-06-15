@@ -62,18 +62,31 @@ def officer_stats(db: Session, officer_id: uuid.UUID) -> dict:
         )
     ).scalar() or 0
 
-    breakdown = {}
-    for result in VerifyResult:
-        count = db.execute(
-            select(func.count(VerificationAttempt.id)).where(
-                VerificationAttempt.officer_id == officer_id,
-                VerificationAttempt.result == result,
-            )
-        ).scalar() or 0
-        breakdown[result.value] = count
+    approved = db.execute(
+        select(func.count(VerificationAttempt.id)).where(
+            VerificationAttempt.officer_id == officer_id,
+            VerificationAttempt.result == VerifyResult.approved,
+        )
+    ).scalar() or 0
+
+    manual_review = db.execute(
+        select(func.count(VerificationAttempt.id)).where(
+            VerificationAttempt.officer_id == officer_id,
+            VerificationAttempt.result == VerifyResult.manual_review,
+        )
+    ).scalar() or 0
+
+    rejected = db.execute(
+        select(func.count(VerificationAttempt.id)).where(
+            VerificationAttempt.officer_id == officer_id,
+            VerificationAttempt.result == VerifyResult.rejected,
+        )
+    ).scalar() or 0
 
     return {
         "officer_id": str(officer_id),
-        "total_verifications": total,
-        "by_result": breakdown,
+        "total": total,
+        "approved": approved,
+        "manual_review": manual_review,
+        "rejected": rejected,
     }
