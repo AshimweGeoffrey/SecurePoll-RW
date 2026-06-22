@@ -36,11 +36,25 @@ class Settings(BaseSettings):
     # Inference backend: "insightface" (real ArcFace) | "synthetic" (deterministic, no model)
     ai_backend: str = "insightface"
 
+    # Liveness backend: "passive" (image-quality anti-spoof) | "none" (always pass)
+    liveness_backend: str = "passive"
+
     # FAISS
     faiss_index_path: str = "ml/faiss/index.bin"
 
+    # CORS — comma-separated allowed origins, or "*" for any (dev only)
+    cors_origins: str = "*"
+
+    # Rate limiting (requests/minute on sensitive endpoints; 0 disables)
+    rate_limit_per_minute: int = 60
+
     # Debug
     debug: bool = False
+
+    @property
+    def cors_origin_list(self) -> list:
+        v = (self.cors_origins or "*").strip()
+        return ["*"] if v == "*" else [o.strip() for o in v.split(",") if o.strip()]
 
 
 # Singleton settings instance

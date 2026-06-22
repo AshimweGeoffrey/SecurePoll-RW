@@ -25,7 +25,5 @@ class InferenceBackend(ABC):
         Raises:
             ValueError: if the image cannot be decoded or no face is detected.
         """
-
-    @abstractmethod
-    def check_liveness(self, image_bytes: bytes) -> Tuple[str, float]:
-        """Return ("live" | "spoof" | "failed", confidence in [0, 1])."""
+    # NOTE: liveness/anti-spoof is a separate concern handled by
+    # ml.providers.liveness.LivenessProvider, not the face-embedding backend.

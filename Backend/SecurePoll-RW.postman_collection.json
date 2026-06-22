@@ -1,200 +1,65 @@
 {
   "info": {
-    "_postman_id": "securepoll-rw-collection-v1",
     "name": "SecurePoll RW",
-    "description": "Complete API collection for SecurePoll RW \u2014 a biometric voter verification system for Rwanda. Covers authentication, voter registry, biometric enrolment, election-day verification, fraud detection, audit log integrity, and analytics.\n\nLogin first with POST /auth/login \u2014 the test script auto-sets the `token` collection variable so all subsequent requests are authenticated automatically.",
+    "description": "# SecurePoll RW \u2014 API collection\n\nAuto-generated from the FastAPI OpenAPI spec \u2014 covers **every** endpoint, each with a usage description, auth note, and example body.\n\n## Getting started\n1. Set the `base_url` variable (default `http://127.0.0.1:8000`).\n2. Run **auth > Login** \u2014 its test script captures `access_token` and `refresh_token` into collection variables automatically.\n3. Every other request inherits Bearer auth (`{{access_token}}`) \u2014 just send it.\n\n## Notes\n- Public endpoints (no token): `POST /auth/login`, `/auth/token`, `/verifications`, `/votes`, `GET /health`.\n- Path/query params are pre-filled with placeholder values \u2014 replace IDs with real ones (list endpoints return them).\n- Each request's **Description** tab explains what it does and which params it takes.\n- Seeded admin login: `admin@securepoll.rw` / `SecurePassword123!`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
-  "variable": [
-    {
-      "key": "baseUrl",
-      "value": "http://localhost:8000",
-      "type": "string",
-      "description": "Base URL of the SecurePoll RW API server"
-    },
-    {
-      "key": "token",
-      "value": "",
-      "type": "string",
-      "description": "JWT access token \u2014 auto-set by POST /auth/login test script"
-    },
-    {
-      "key": "voter_id",
-      "value": "",
-      "type": "string",
-      "description": "UUID of a voter \u2014 set manually after creating or listing voters"
-    },
-    {
-      "key": "voter_token",
-      "value": "RW-001-001-TEST",
-      "type": "string",
-      "description": "Human-readable voter token used for lookup and verification"
-    },
-    {
-      "key": "station_id",
-      "value": "",
-      "type": "string",
-      "description": "UUID of a polling station"
-    },
-    {
-      "key": "case_id",
-      "value": "FR-SEED01",
-      "type": "string",
-      "description": "Fraud case ID \u2014 seeded value for testing"
-    },
-    {
-      "key": "match_id",
-      "value": "",
-      "type": "string",
-      "description": "UUID of a duplicate match record"
-    },
-    {
-      "key": "anomaly_id",
-      "value": "ANOM-001",
-      "type": "string",
-      "description": "Anomaly signal ID"
-    },
-    {
-      "key": "audit_entry_id",
-      "value": "",
-      "type": "string",
-      "description": "UUID of an audit log entry"
-    },
-    {
-      "key": "user_id",
-      "value": "",
-      "type": "string",
-      "description": "UUID of an admin user"
-    },
-    {
-      "key": "role_id",
-      "value": "super",
-      "type": "string",
-      "description": "Role identifier string (e.g. super, officer, auditor)"
-    },
-    {
-      "key": "session_id",
-      "value": "",
-      "type": "string",
-      "description": "UUID of an active session"
-    },
-    {
-      "key": "attempt_id",
-      "value": "",
-      "type": "string",
-      "description": "UUID of a verification attempt"
-    },
-    {
-      "key": "officer_id",
-      "value": "",
-      "type": "string",
-      "description": "UUID of the polling officer"
-    },
-    {
-      "key": "district_id",
-      "value": "",
-      "type": "string",
-      "description": "UUID of a district"
-    }
-  ],
   "auth": {
     "type": "bearer",
     "bearer": [
       {
         "key": "token",
-        "value": "{{token}}",
+        "value": "{{access_token}}",
         "type": "string"
       }
     ]
   },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000"
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "refresh_token",
+      "value": ""
+    }
+  ],
   "item": [
     {
-      "name": "System",
-      "description": "Health checks and server status endpoints. No authentication required.",
+      "name": "system",
+      "description": "Health checks and server status.",
       "item": [
         {
-          "name": "Health Check",
-          "description": "Returns {\"status\": \"ok\"} when the API is reachable. No authentication required.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "pm.test('Response body has status ok', function () {",
-                  "    var data = pm.response.json();",
-                  "    pm.expect(data.status).to.eql('ok');",
-                  "});",
-                  "",
-                  "pm.test('Response time is acceptable', function () {",
-                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
-                  "});"
-                ]
-              }
-            }
-          ],
+          "name": "Service health check",
           "request": {
-            "auth": {
-              "type": "noauth"
-            },
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/health",
+              "raw": "{{base_url}}/health",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
                 "health"
               ]
-            }
-          }
+            },
+            "description": "`GET /health` \u2014 Auth: public (no token)\n\nReturns `{\"status\": \"ok\"}` when the API is reachable.  No authentication required."
+          },
+          "response": []
         }
       ]
     },
     {
-      "name": "Auth",
-      "description": "Authentication (JWT + TOTP 2FA), session management.\n\nLogin flow:\n1. POST /auth/login \u2192 if mfa_required, go to step 2, otherwise done\n2. POST /auth/mfa \u2192 full token",
+      "name": "auth",
+      "description": "Authentication (JWT + TOTP 2FA), admin user management, RBAC roles, and session tracking.  Login flow: `POST /auth/login` \u2192 if `mfa_required`, `POST /auth/mfa` \u2192 full token.",
       "item": [
         {
-          "name": "Login",
-          "description": "Login with email and password. Returns JWT access token. If MFA is enabled, returns a partial token with mfa_required=true \u2014 then call POST /auth/mfa.\n\nThe test script automatically stores the token as a collection variable.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "var data = pm.response.json();",
-                  "if (data.access_token) {",
-                  "    pm.collectionVariables.set('token', data.access_token);",
-                  "    pm.test('Login successful', function () {",
-                  "        pm.response.to.have.status(200);",
-                  "    });",
-                  "    pm.test('Token received', function () {",
-                  "        pm.expect(data.access_token).to.be.a('string').and.not.empty;",
-                  "    });",
-                  "    pm.test('Token type is bearer', function () {",
-                  "        pm.expect(data.token_type).to.eql('bearer');",
-                  "    });",
-                  "    console.log('Token stored:', data.access_token.substring(0, 20) + '...');",
-                  "} else {",
-                  "    pm.test('Login response valid', function () {",
-                  "        pm.response.to.have.status(200);",
-                  "    });",
-                  "}"
-                ]
-              }
-            }
-          ],
+          "name": "Login with email and password",
           "request": {
-            "auth": {
-              "type": "noauth"
-            },
             "method": "POST",
             "header": [
               {
@@ -202,6 +67,16 @@
                 "value": "application/json"
               }
             ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"admin@securepoll.rw\",\n  \"password\": \"SecurePassword123!\"\n}",
@@ -211,95 +86,73 @@
                 }
               }
             },
-            "url": {
-              "raw": "{{baseUrl}}/auth/login",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "login"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Login (OAuth2 Form)",
-          "description": "OAuth2-compatible form login \u2014 same as /auth/login but accepts x-www-form-urlencoded body. Used by the /docs Authorize button. Accepts username and password as form fields.",
+            "description": "`POST /auth/login` \u2014 Auth: public (no token)\n\nAuthenticate with `email` + `password`.  \n\n- If the account has MFA enabled, `mfa_required: true` is returned together with a short-lived partial token (5 min).  Pass that token to `POST /auth/mfa` with the TOTP code to upgrade to a full session token.\n- If MFA is not configured, a full JWT is returned immediately.\n\nSuspended accounts receive **403 Forbidden**."
+          },
+          "response": [],
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "var data = pm.response.json();",
-                  "if (data.access_token) {",
-                  "    pm.collectionVariables.set('token', data.access_token);",
-                  "    console.log('Token stored from form login');",
-                  "}"
+                  "var j = pm.response.json();",
+                  "if (j.access_token) { pm.collectionVariables.set('access_token', j.access_token); }",
+                  "if (j.refresh_token) { pm.collectionVariables.set('refresh_token', j.refresh_token); }"
                 ]
               }
             }
-          ],
+          ]
+        },
+        {
+          "name": "OAuth2 form login (Swagger Authorize button)",
           "request": {
-            "auth": {
-              "type": "noauth"
-            },
             "method": "POST",
             "header": [],
-            "body": {
-              "mode": "urlencoded",
-              "urlencoded": [
-                {
-                  "key": "username",
-                  "value": "admin@securepoll.rw",
-                  "type": "text"
-                },
-                {
-                  "key": "password",
-                  "value": "SecurePassword123!",
-                  "type": "text"
-                }
-              ]
-            },
             "url": {
-              "raw": "{{baseUrl}}/auth/token",
+              "raw": "{{base_url}}/auth/token",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
                 "auth",
                 "token"
               ]
-            }
-          }
+            },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "string"
+                },
+                {
+                  "key": "username",
+                  "value": "string"
+                },
+                {
+                  "key": "password",
+                  "value": "string"
+                },
+                {
+                  "key": "scope",
+                  "value": ""
+                },
+                {
+                  "key": "client_id",
+                  "value": "string"
+                },
+                {
+                  "key": "client_secret",
+                  "value": "string"
+                }
+              ]
+            },
+            "description": "`POST /auth/token` \u2014 Auth: public (no token)\n\nOAuth2-compatible `application/x-www-form-urlencoded` login.  This endpoint is wired to the **Authorize** button in the Swagger UI \u2014 use `username` (email) and `password` fields.  Returns a full JWT (MFA is bypassed for the interactive docs flow)."
+          },
+          "response": []
         },
         {
-          "name": "Verify MFA (TOTP)",
-          "description": "Second step of MFA login. Submit the 6-digit TOTP code from an authenticator app to upgrade a partial token to a full access token.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "var data = pm.response.json();",
-                  "if (data.access_token && !data.mfa_required) {",
-                  "    pm.collectionVariables.set('token', data.access_token);",
-                  "    console.log('Full token stored after MFA verification');",
-                  "}"
-                ]
-              }
-            }
-          ],
+          "name": "Complete TOTP MFA challenge",
           "request": {
             "method": "POST",
             "header": [
@@ -308,171 +161,214 @@
                 "value": "application/json"
               }
             ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"code\": \"123456\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
             "url": {
-              "raw": "{{baseUrl}}/auth/mfa",
+              "raw": "{{base_url}}/auth/mfa",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
                 "auth",
                 "mfa"
               ]
-            }
-          }
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "`POST /auth/mfa` \u2014 Auth: public (no token)\n\nSubmit the 6-digit TOTP code from an authenticator app to upgrade a partial token (received from `POST /auth/login` when `mfa_required: true`) into a full session token.  \n\nThe partial token must be included in the `Authorization: Bearer \u2026` header of this request."
+          },
+          "response": []
         },
         {
-          "name": "Refresh Token",
-          "description": "Refresh the current JWT access token. Returns a new token with a fresh expiry. Useful to extend a session without re-entering credentials.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "var data = pm.response.json();",
-                  "if (data.access_token) {",
-                  "    pm.collectionVariables.set('token', data.access_token);",
-                  "    console.log('Token refreshed');",
-                  "}"
-                ]
-              }
-            }
-          ],
+          "name": "Refresh the current JWT",
           "request": {
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/auth/refresh",
+              "raw": "{{base_url}}/auth/refresh",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
                 "auth",
                 "refresh"
               ]
-            }
-          }
+            },
+            "description": "`POST /auth/refresh` \u2014 Auth: public (no token)\n\nIssue a fresh JWT for the authenticated user without requiring re-entry of credentials.  Useful for extending sessions before the current token expires."
+          },
+          "response": []
         },
         {
-          "name": "Logout",
-          "description": "Logout the current user. Since SecurePoll uses stateless JWTs, this is a client-side operation. The server returns a confirmation message and the client should discard the token.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "pm.test('Logout confirmed', function () {",
-                  "    var data = pm.response.json();",
-                  "    pm.expect(data.status).to.eql('logged out');",
-                  "});",
-                  "",
-                  "pm.collectionVariables.set('token', '');"
-                ]
-              }
-            }
-          ],
+          "name": "Logout current session",
           "request": {
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/auth/logout",
+              "raw": "{{base_url}}/auth/logout",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
                 "auth",
                 "logout"
               ]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Users",
-      "description": "Admin user management \u2014 list, invite, update, MFA reset, and suspend. All endpoints require authentication.",
-      "item": [
+            },
+            "description": "`POST /auth/logout` \u2014 Auth: Bearer {{access_token}}\n\nSignals logout intent.  Because JWTs are stateless, the token is not server-side invalidated \u2014 the client must discard the token.  To truly revoke access, use `POST /sessions/{session_id}:revoke`."
+          },
+          "response": []
+        },
         {
-          "name": "List Users",
-          "description": "Retrieve all admin users in the system. Returns full profile including role, status, and last-active timestamp.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "pm.test('Response is an array', function () {",
-                  "    var data = pm.response.json();",
-                  "    pm.expect(data).to.be.an('array');",
-                  "});",
-                  "",
-                  "var data = pm.response.json();",
-                  "if (data.length > 0) {",
-                  "    pm.collectionVariables.set('user_id', data[0].id);",
-                  "    console.log('user_id set to', data[0].id);",
-                  "}"
-                ]
-              }
-            }
-          ],
+          "name": "List all admin users",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/users",
+              "raw": "{{base_url}}/users",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
                 "users"
               ]
-            }
-          }
+            },
+            "description": "`GET /users` \u2014 Auth: Bearer {{access_token}}\n\nReturns all admin user accounts in the system.  Requires an authenticated admin session."
+          },
+          "response": []
         },
         {
-          "name": "Invite User",
-          "description": "Invite a new admin user by email. The user is created with status `invitation_pending`. Requires super-admin role.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 201', function () {",
-                  "    pm.response.to.have.status(201);",
-                  "});",
-                  "",
-                  "var data = pm.response.json();",
-                  "if (data.id) {",
-                  "    pm.collectionVariables.set('user_id', data.id);",
-                  "    console.log('Invited user id:', data.id);",
-                  "}"
-                ]
+          "name": "Get the currently authenticated user's profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me"
+              ]
+            },
+            "description": "`GET /users/me` \u2014 Auth: Bearer {{access_token}}\n\nReturns the full profile of the user identified by the bearer token in the `Authorization` header.  Useful for UI profile pages and permission checks."
+          },
+          "response": []
+        },
+        {
+          "name": "Get TOTP provisioning URI for QR code display",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/{user_id}:totp-uri",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "{user_id}:totp-uri"
+              ]
+            },
+            "description": "`GET /users/{user_id}:totp-uri` \u2014 Auth: Bearer {{access_token}}\n\nReturns the TOTP provisioning URI and secret for the target user so a frontend can render a QR code for authenticator app setup.  \n\nRequires that `POST /users/{user_id}:reset-mfa` has already been called to generate the secret.  Returns **400** if no secret exists yet.\n\n**Path params:** `user_id`"
+          },
+          "response": []
+        },
+        {
+          "name": "Get a single admin user by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/:user_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                ":user_id"
+              ],
+              "variable": [
+                {
+                  "key": "user_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            },
+            "description": "`GET /users/{user_id}` \u2014 Auth: Bearer {{access_token}}\n\nRetrieve the full profile of a single admin user identified by UUID.  Returns **404** if the user does not exist.\n\n**Path params:** `user_id`"
+          },
+          "response": []
+        },
+        {
+          "name": "Update an admin user's profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
               }
-            }
-          ],
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/:user_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                ":user_id"
+              ],
+              "variable": [
+                {
+                  "key": "user_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"string\",\n  \"district_scope\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "`PATCH /users/{user_id}` \u2014 Auth: Bearer {{access_token}}\n\nPartially update an admin user's `full_name` and/or `district_scope`.  Only the fields present in the request body are changed (PATCH semantics).  An audit entry is written for every update.\n\n**Path params:** `user_id`"
+          },
+          "response": []
+        },
+        {
+          "name": "Soft-delete an admin user account",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/:user_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                ":user_id"
+              ],
+              "variable": [
+                {
+                  "key": "user_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            },
+            "description": "`DELETE /users/{user_id}` \u2014 Auth: Bearer {{access_token}}\n\nSoft-deletes an admin user by suspending the account and writing a `USER_DELETED` audit entry.  The row is retained for audit chain integrity.  \n\n**Constraints:**\n- Cannot delete your own account.\n- Cannot delete the last active super-admin (guard not implemented \u2014 use with care).\n\n**Path params:** `user_id`"
+          },
+          "response": []
+        },
+        {
+          "name": "Invite (create) a new admin user",
           "request": {
             "method": "POST",
             "header": [
@@ -481,73 +377,118 @@
                 "value": "application/json"
               }
             ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"full_name\": \"Jean Pierre Habimana\",\n  \"email\": \"jp.habimana@securepoll.rw\",\n  \"password\": \"TempPass123!\",\n  \"role_id\": \"officer\",\n  \"district_scope\": \"Kigali\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
             "url": {
-              "raw": "{{baseUrl}}/users:invite",
+              "raw": "{{base_url}}/users:invite",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
                 "users:invite"
               ]
-            }
-          }
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"string\",\n  \"email\": \"user@securepoll.rw\",\n  \"role_id\": \"string\",\n  \"district_scope\": \"National\",\n  \"password\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "`POST /users:invite` \u2014 Auth: Bearer {{access_token}}\n\nCreate a new admin user account and set its status to `invitation_pending`.  \n\n- `role_id` must reference an existing role.\n- `email` must be unique \u2014 returns **400** if already registered.\n- The invited user should change their password on first login."
+          },
+          "response": []
         },
         {
-          "name": "Get User by ID",
-          "description": "Retrieve a specific admin user by their UUID. Returns full profile.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
-                ]
-              }
-            }
-          ],
+          "name": "Reset and re-provision TOTP secret for a user",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/{user_id}:reset-mfa",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "{user_id}:reset-mfa"
+              ]
+            },
+            "description": "`POST /users/{user_id}:reset-mfa` \u2014 Auth: Bearer {{access_token}}\n\nGenerates a fresh TOTP secret for the target user, enables MFA on their account, and returns the raw secret for them to scan into an authenticator app (e.g., Google Authenticator, Authy).  \n\n**Security note:** the secret is returned only once \u2014 store it securely or display as a QR code to the user immediately.\n\n**Path params:** `user_id`"
+          },
+          "response": []
+        },
+        {
+          "name": "Suspend an admin user account",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/{user_id}:suspend",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "{user_id}:suspend"
+              ]
+            },
+            "description": "`POST /users/{user_id}:suspend` \u2014 Auth: Bearer {{access_token}}\n\nSets the target user's status to `suspended`, preventing them from logging in.  \n\n**Constraint:** a user cannot suspend their own account \u2014 returns **400** if attempted.\n\n**Path params:** `user_id`"
+          },
+          "response": []
+        },
+        {
+          "name": "List all RBAC roles",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/users/{{user_id}}",
+              "raw": "{{base_url}}/roles",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
-                "users",
-                "{{user_id}}"
+                "roles"
               ]
-            }
-          }
+            },
+            "description": "`GET /roles` \u2014 Auth: Bearer {{access_token}}\n\nReturns all roles defined in the system, each with an array of `permissions` strings.  Roles are referenced by `role_id` on admin user records."
+          },
+          "response": []
         },
         {
-          "name": "Update User",
-          "description": "Update an admin user's full name or district scope. Only the fields provided in the body are updated (partial update).",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
-                ]
+          "name": "Create a new RBAC role",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
               }
-            }
-          ],
+            ],
+            "url": {
+              "raw": "{{base_url}}/roles",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "roles"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"string\",\n  \"name\": \"string\",\n  \"permissions\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "`POST /roles` \u2014 Auth: Bearer {{access_token}}\n\nCreate a named role with an explicit list of permission strings.  Permission strings are arbitrary \u2014 the application checks for their presence in the role's `permissions` array."
+          },
+          "response": []
+        },
+        {
+          "name": "Update an existing RBAC role",
           "request": {
             "method": "PATCH",
             "header": [
@@ -556,348 +497,758 @@
                 "value": "application/json"
               }
             ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"full_name\": \"Jean Pierre Habimana\",\n  \"district_scope\": \"Kigali City\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
             "url": {
-              "raw": "{{baseUrl}}/users/{{user_id}}",
+              "raw": "{{base_url}}/roles/:role_id",
               "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "users",
-                "{{user_id}}"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Reset User MFA",
-          "description": "Reset MFA for an admin user and generate a new TOTP secret. Returns the raw TOTP secret that must be scanned into an authenticator app.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "pm.test('TOTP secret returned', function () {",
-                  "    var data = pm.response.json();",
-                  "    pm.expect(data.totp_secret).to.be.a('string').and.not.empty;",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/users/{{user_id}}:reset-mfa",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "users",
-                "{{user_id}}:reset-mfa"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Suspend User",
-          "description": "Suspend an admin user account. Suspended users cannot log in. Cannot be used to suspend yourself.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "pm.test('User suspended', function () {",
-                  "    var data = pm.response.json();",
-                  "    pm.expect(data.status).to.eql('suspended');",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/users/{{user_id}}:suspend",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "users",
-                "{{user_id}}:suspend"
-              ]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Roles",
-      "description": "RBAC role management \u2014 list, create, and update permission roles.",
-      "item": [
-        {
-          "name": "List Roles",
-          "description": "Retrieve all RBAC roles defined in the system. Each role has a list of permission strings.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "pm.test('Response is an array', function () {",
-                  "    pm.expect(pm.response.json()).to.be.an('array');",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/roles",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "roles"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Create Role",
-          "description": "Create a new RBAC role with a list of permission strings. The role ID must be a unique slug.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 201', function () {",
-                  "    pm.response.to.have.status(201);",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"id\": \"district_supervisor\",\n  \"name\": \"District Supervisor\",\n  \"permissions\": [\n    \"voters:read\",\n    \"voters:write\",\n    \"verification:read\",\n    \"audit:read\"\n  ]\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/roles",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "roles"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Update Role",
-          "description": "Update an existing role's name and permissions by role ID.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"id\": \"{{role_id}}\",\n  \"name\": \"Super Administrator\",\n  \"permissions\": [\n    \"*\"\n  ]\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/roles/{{role_id}}",
-              "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
                 "roles",
-                "{{role_id}}"
+                ":role_id"
+              ],
+              "variable": [
+                {
+                  "key": "role_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
               ]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Sessions",
-      "description": "Active session management for the current authenticated user.",
-      "item": [
-        {
-          "name": "List My Sessions",
-          "description": "List all active (non-revoked) sessions for the currently authenticated user. Returns device, IP address, location, and last-active time.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "var data = pm.response.json();",
-                  "if (data.length > 0) {",
-                  "    pm.collectionVariables.set('session_id', data[0].id);",
-                  "    console.log('session_id set to', data[0].id);",
-                  "}"
-                ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"string\",\n  \"name\": \"string\",\n  \"permissions\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
               }
-            }
-          ],
+            },
+            "description": "`PATCH /roles/{role_id}` \u2014 Auth: Bearer {{access_token}}\n\nReplace the `name` and `permissions` array of an existing role.  All users assigned this role immediately inherit the new permissions.\n\n**Path params:** `role_id`"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete an RBAC role",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/roles/:role_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "roles",
+                ":role_id"
+              ],
+              "variable": [
+                {
+                  "key": "role_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            },
+            "description": "`DELETE /roles/{role_id}` \u2014 Auth: Bearer {{access_token}}\n\nHard-deletes a role by its string ID.  \n\nReturns **400** if any admin users are currently assigned to this role \u2014 reassign those users to a different role before deleting.\n\n**Path params:** `role_id`"
+          },
+          "response": []
+        },
+        {
+          "name": "List active sessions for current user",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/sessions",
+              "raw": "{{base_url}}/sessions",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
                 "sessions"
               ]
-            }
-          }
+            },
+            "description": "`GET /sessions` \u2014 Auth: Bearer {{access_token}}\n\nReturns all non-revoked sessions belonging to the currently authenticated user.  Each session record includes device, IP address, location, and last-active timestamp."
+          },
+          "response": []
         },
         {
-          "name": "Revoke Session",
-          "description": "Revoke a specific session by UUID. This marks the session as revoked and the associated token becomes invalid.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "pm.test('Session revoked', function () {",
-                  "    var data = pm.response.json();",
-                  "    pm.expect(data.status).to.eql('revoked');",
-                  "});"
-                ]
-              }
-            }
-          ],
+          "name": "Revoke a specific session",
           "request": {
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/sessions/{{session_id}}:revoke",
+              "raw": "{{base_url}}/sessions/{session_id}:revoke",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
                 "sessions",
-                "{{session_id}}:revoke"
+                "{session_id}:revoke"
               ]
-            }
-          }
+            },
+            "description": "`POST /sessions/{session_id}:revoke` \u2014 Auth: Bearer {{access_token}}\n\nMark a session as revoked by setting its `revoked_at` timestamp.  Any token associated with that session will no longer be considered valid by session-aware middleware.\n\n**Path params:** `session_id`"
+          },
+          "response": []
+        },
+        {
+          "name": "Activate a pending admin user account",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/{user_id}:activate",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "{user_id}:activate"
+              ]
+            },
+            "description": "`POST /users/{user_id}:activate` \u2014 Auth: Bearer {{access_token}}\n\nSet a user's status from `invitation_pending` to `active`, allowing them to log in.  \n\nTypically called after an invited user has confirmed their email or an admin manually approves the account.  An audit entry is written.\n\n**Path params:** `user_id`"
+          },
+          "response": []
+        },
+        {
+          "name": "Change the current user's own password",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/change-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "change-password"
+              ],
+              "query": [
+                {
+                  "key": "current_password",
+                  "value": "string",
+                  "disabled": false
+                },
+                {
+                  "key": "new_password",
+                  "value": "string",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "`POST /auth/change-password` \u2014 Auth: Bearer {{access_token}}\n\nAllows an authenticated user to change their own password by providing their current password for verification.  \n\n- Returns **400** if `current_password` does not match the stored hash.\n- The new password is immediately hashed and persisted.\n- An audit entry is written recording the change (no passwords are logged).\n**Query params:** `current_password`, `new_password`"
+          },
+          "response": []
         }
       ]
     },
     {
-      "name": "Voter Registry",
-      "description": "Voter registry management \u2014 create, search, update voter records. Voters progress through statuses: registered \u2192 voted; side paths: blocked, flagged, archived.",
+      "name": "geography",
+      "description": "Districts and polling station management \u2014 reference geography data used throughout the voter registry and verification pipeline.",
       "item": [
         {
-          "name": "List Voters",
-          "description": "Retrieve a paginated list of voters. Supports search by name/token/ref, filter by status, and filter by district.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "pm.test('Response has total field', function () {",
-                  "    var data = pm.response.json();",
-                  "    pm.expect(data).to.have.property('total');",
-                  "    pm.expect(data).to.have.property('items');",
-                  "});",
-                  "",
-                  "var data = pm.response.json();",
-                  "if (data.items && data.items.length > 0) {",
-                  "    pm.collectionVariables.set('voter_id', data.items[0].id);",
-                  "    pm.collectionVariables.set('voter_token', data.items[0].voter_token);",
-                  "    console.log('voter_id set to', data.items[0].id);",
-                  "}"
-                ]
-              }
-            }
-          ],
+          "name": "List all districts with optional province filter",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/voters?skip=0&limit=20",
+              "raw": "{{base_url}}/districts",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
+              ],
+              "path": [
+                "districts"
+              ],
+              "query": [
+                {
+                  "key": "province",
+                  "value": "Kigali City",
+                  "disabled": true
+                },
+                {
+                  "key": "skip",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "`GET /districts` \u2014 Auth: Bearer {{access_token}}\n\nReturns a paginated list of districts.  \n\n**Query parameters:**\n- `province` \u2014 filter by `Province` enum value (`Kigali City`, `Northern`, `Southern`, `Eastern`, `Western`).\n- `skip` / `limit` \u2014 pagination offset and page size (default 50).\n**Query params:** `province`, `skip`, `limit`"
+          },
+          "response": []
+        },
+        {
+          "name": "Create a new district",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/districts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "districts"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"string\",\n  \"name\": \"string\",\n  \"province\": \"Kigali City\",\n  \"boundary_ref\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "`POST /districts` \u2014 Auth: Bearer {{access_token}}\n\nRegister a new administrative district.  \n\nThe `code` field must be unique across all districts.  Optionally supply a `boundary_ref` (GeoJSON reference string) for map integration.  An audit entry is written on success."
+          },
+          "response": []
+        },
+        {
+          "name": "Get a district by UUID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/districts/:district_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "districts",
+                ":district_id"
+              ],
+              "variable": [
+                {
+                  "key": "district_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            },
+            "description": "`GET /districts/{district_id}` \u2014 Auth: Bearer {{access_token}}\n\nRetrieve the full record of a single district using its UUID primary key.  Returns **404** if the district does not exist.\n\n**Path params:** `district_id`"
+          },
+          "response": []
+        },
+        {
+          "name": "Partially update a district",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/districts/:district_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "districts",
+                ":district_id"
+              ],
+              "variable": [
+                {
+                  "key": "district_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"string\",\n  \"name\": \"string\",\n  \"boundary_ref\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "`PATCH /districts/{district_id}` \u2014 Auth: Bearer {{access_token}}\n\nUpdate one or more of a district's mutable fields: `code`, `name`, or `boundary_ref`.  Omitted fields are left unchanged (PATCH semantics).  An audit entry is written recording the field-level diff.\n\n**Path params:** `district_id`"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete a district",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/districts/:district_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "districts",
+                ":district_id"
+              ],
+              "variable": [
+                {
+                  "key": "district_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            },
+            "description": "`DELETE /districts/{district_id}` \u2014 Auth: Bearer {{access_token}}\n\nPermanently delete a district.  \n\nReturns **400** if the district still has polling stations assigned to it \u2014 remove all stations first.  Returns **404** if the district does not exist.\n\n**Path params:** `district_id`"
+          },
+          "response": []
+        },
+        {
+          "name": "List all polling stations with optional district filter",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/polling-stations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "polling-stations"
+              ],
+              "query": [
+                {
+                  "key": "district_id",
+                  "value": "00000000-0000-0000-0000-000000000000",
+                  "disabled": true
+                },
+                {
+                  "key": "skip",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "`GET /polling-stations` \u2014 Auth: Bearer {{access_token}}\n\nReturns a paginated list of polling stations.  \n\n**Query parameters:**\n- `district_id` \u2014 filter to one district's stations.\n- `skip` / `limit` \u2014 pagination offset and page size (default 50).\n**Query params:** `district_id`, `skip`, `limit`"
+          },
+          "response": []
+        },
+        {
+          "name": "Create a new polling station",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/polling-stations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "polling-stations"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"string\",\n  \"name\": \"string\",\n  \"district_id\": \"00000000-0000-0000-0000-000000000000\",\n  \"lat\": 0.0,\n  \"lon\": 0.0,\n  \"opens_at\": \"string\",\n  \"closes_at\": \"string\",\n  \"status\": \"online\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "`POST /polling-stations` \u2014 Auth: Bearer {{access_token}}\n\nRegister a new polling station.  \n\nThe `district_id` must reference an existing district \u2014 returns **400** if not found.  The station is created with status `not_open` by default.  An audit entry is written on success."
+          },
+          "response": []
+        },
+        {
+          "name": "Get a polling station by UUID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/polling-stations/:station_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "polling-stations",
+                ":station_id"
+              ],
+              "variable": [
+                {
+                  "key": "station_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            },
+            "description": "`GET /polling-stations/{station_id}` \u2014 Auth: Bearer {{access_token}}\n\nRetrieve the full record of a single polling station using its UUID primary key.  Returns **404** if the station does not exist.\n\n**Path params:** `station_id`"
+          },
+          "response": []
+        },
+        {
+          "name": "Partially update a polling station",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/polling-stations/:station_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "polling-stations",
+                ":station_id"
+              ],
+              "variable": [
+                {
+                  "key": "station_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"string\",\n  \"lat\": 0.0,\n  \"lon\": 0.0,\n  \"opens_at\": \"string\",\n  \"closes_at\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "`PATCH /polling-stations/{station_id}` \u2014 Auth: Bearer {{access_token}}\n\nUpdate one or more mutable fields of a polling station: `name`, `lat`, `lon`, `opens_at`, `closes_at`.  Omitted fields are left unchanged (PATCH semantics).  Use `:open` and `:close` custom actions to change the station's operational status.\n\n**Path params:** `station_id`"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete a polling station",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/polling-stations/:station_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "polling-stations",
+                ":station_id"
+              ],
+              "variable": [
+                {
+                  "key": "station_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            },
+            "description": "`DELETE /polling-stations/{station_id}` \u2014 Auth: Bearer {{access_token}}\n\nPermanently delete a polling station.  \n\nReturns **400** if the station still has voters registered to it \u2014 reassign them first.  Returns **404** if the station does not exist.\n\n**Path params:** `station_id`"
+          },
+          "response": []
+        },
+        {
+          "name": "Open a polling station for voting",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/polling-stations/{station_id}:open",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "polling-stations",
+                "{station_id}:open"
+              ]
+            },
+            "description": "`POST /polling-stations/{station_id}:open` \u2014 Auth: Bearer {{access_token}}\n\nSet the station's status to `online`, indicating that it is open and accepting voters.  An audit entry is written with action `STATUS_SYNCED`.  Returns **404** if the station does not exist.\n\n**Path params:** `station_id`"
+          },
+          "response": []
+        },
+        {
+          "name": "Close a polling station",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/polling-stations/{station_id}:close",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "polling-stations",
+                "{station_id}:close"
+              ]
+            },
+            "description": "`POST /polling-stations/{station_id}:close` \u2014 Auth: Bearer {{access_token}}\n\nSet the station's status to `offline`, indicating that voting has ended at this station.  An audit entry is written with action `STATUS_SYNCED`.  Returns **404** if the station does not exist.\n\n**Path params:** `station_id`"
+          },
+          "response": []
+        },
+        {
+          "name": "Station-day summary with vote counts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/polling-stations/:station_id/summary",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "polling-stations",
+                ":station_id",
+                "summary"
+              ],
+              "variable": [
+                {
+                  "key": "station_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            },
+            "description": "`GET /polling-stations/{station_id}/summary` \u2014 Auth: Bearer {{access_token}}\n\nReturns a real-time summary for a polling station covering the current election day.  \n\n**Fields returned:**\n- `registered_count` \u2014 total voters assigned to this station.\n- `verified_today` \u2014 biometric verifications completed today (from station counter).\n- `votes_cast` \u2014 voters with status `voted` assigned to this station (queried live).\n- `pending` \u2014 registered voters who have not yet voted.\n\nReturns **404** if the station does not exist.\n\n**Path params:** `station_id`"
+          },
+          "response": []
+        },
+        {
+          "name": "List all polling stations for a district",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/districts/:district_id/stations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "districts",
+                ":district_id",
+                "stations"
+              ],
+              "variable": [
+                {
+                  "key": "district_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            },
+            "description": "`GET /districts/{district_id}/stations` \u2014 Auth: Bearer {{access_token}}\n\nReturns all polling stations belonging to the given district.  Returns **404** if the district does not exist.\n\n**Path params:** `district_id`"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "officers",
+      "description": "Field officer management.  Officers are assigned to districts and conduct biometric enrolment and election-day verification.",
+      "item": [
+        {
+          "name": "List all field officers with optional district filter",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/officers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "officers"
+              ],
+              "query": [
+                {
+                  "key": "district_id",
+                  "value": "00000000-0000-0000-0000-000000000000",
+                  "disabled": true
+                },
+                {
+                  "key": "skip",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "`GET /officers` \u2014 Auth: Bearer {{access_token}}\n\nReturns a paginated list of field officers.  \n\n**Query parameters:**\n- `district_id` \u2014 filter to officers assigned to a specific district.\n- `skip` / `limit` \u2014 pagination offset and page size (default 50).\n**Query params:** `district_id`, `skip`, `limit`"
+          },
+          "response": []
+        },
+        {
+          "name": "Create a new field officer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/officers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "officers"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"string\",\n  \"team\": \"string\",\n  \"assigned_district_id\": \"00000000-0000-0000-0000-000000000000\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "`POST /officers` \u2014 Auth: Bearer {{access_token}}\n\nRegister a new field officer.  \n\nOptionally assign the officer to a `team` and a district via `assigned_district_id`.  The `assigned_district_id` is not validated against the districts table at creation time \u2014 ensure you pass a valid UUID if district scoping is required."
+          },
+          "response": []
+        },
+        {
+          "name": "Get a field officer by UUID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/officers/:officer_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "officers",
+                ":officer_id"
+              ],
+              "variable": [
+                {
+                  "key": "officer_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            },
+            "description": "`GET /officers/{officer_id}` \u2014 Auth: Bearer {{access_token}}\n\nRetrieve the full record of a single field officer using their UUID primary key.  Returns **404** if the officer does not exist.\n\n**Path params:** `officer_id`"
+          },
+          "response": []
+        },
+        {
+          "name": "Partially update a field officer",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/officers/:officer_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "officers",
+                ":officer_id"
+              ],
+              "variable": [
+                {
+                  "key": "officer_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"string\",\n  \"team\": \"string\",\n  \"assigned_district_id\": \"00000000-0000-0000-0000-000000000000\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "`PATCH /officers/{officer_id}` \u2014 Auth: Bearer {{access_token}}\n\nUpdate one or more of a field officer's mutable fields: `name`, `team`, or `assigned_district_id`.  Omitted fields are left unchanged (PATCH semantics).  Returns **404** if the officer does not exist.\n\n**Path params:** `officer_id`"
+          },
+          "response": []
+        },
+        {
+          "name": "Hard-delete a field officer",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/officers/:officer_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "officers",
+                ":officer_id"
+              ],
+              "variable": [
+                {
+                  "key": "officer_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            },
+            "description": "`DELETE /officers/{officer_id}` \u2014 Auth: Bearer {{access_token}}\n\nPermanently remove a field officer record from the database.  \n\nField officers are not voters and carry no audit sensitivity, so a hard delete is permitted here.  Returns **204 No Content** on success and **404** if the officer does not exist.\n\n**Path params:** `officer_id`"
+          },
+          "response": []
+        },
+        {
+          "name": "Get verification statistics for a field officer",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/officers/:officer_id/stats",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "officers",
+                ":officer_id",
+                "stats"
+              ],
+              "variable": [
+                {
+                  "key": "officer_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            },
+            "description": "`GET /officers/{officer_id}/stats` \u2014 Auth: Bearer {{access_token}}\n\nReturns the total number of biometric verification attempts performed by this officer, broken down by result (`approved`, `manual_review`, `rejected`).  \n\nCounts are queried live from the `verification_attempts` table.  Returns **404** if the officer does not exist.\n\n**Path params:** `officer_id`"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "voters",
+      "description": "Voter registry: create, search, update status, bulk CSV import/export.  Voters progress through statuses: `registered \u2192 voted`; side paths `blocked`, `flagged`, `archived`.",
+      "item": [
+        {
+          "name": "List voters with pagination and filtering",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/voters",
+              "host": [
+                "{{base_url}}"
               ],
               "path": [
                 "voters"
@@ -905,59 +1256,37 @@
               "query": [
                 {
                   "key": "skip",
-                  "value": "0",
-                  "description": "Pagination offset"
+                  "value": "",
+                  "disabled": true
                 },
                 {
                   "key": "limit",
-                  "value": "20",
-                  "description": "Page size (max records)"
+                  "value": "50",
+                  "disabled": true
                 },
                 {
                   "key": "search",
                   "value": "",
-                  "description": "Search by name, voter token, or registration ref",
                   "disabled": true
                 },
                 {
                   "key": "status",
-                  "value": "registered",
-                  "description": "Filter by voter status (registered|voted|blocked|flagged|archived)",
+                  "value": "",
                   "disabled": true
                 },
                 {
                   "key": "district",
                   "value": "",
-                  "description": "Filter by district UUID",
                   "disabled": true
                 }
               ]
-            }
-          }
+            },
+            "description": "`GET /voters` \u2014 Auth: Bearer {{access_token}}\n\nReturns a paginated list of voters from the registry.  \n\n**Query parameters:**\n- `skip` / `limit` \u2014 pagination offset and page size (default 50).\n- `search` \u2014 case-insensitive full-text search across `first_name`, `last_name`, `voter_token`, and `registration_ref`.\n- `status` \u2014 filter by voter status (`registered`, `voted`, `blocked`, `flagged`, `archived`).\n- `district` \u2014 filter by `district_id` UUID string.\n**Query params:** `skip`, `limit`, `search`, `status`, `district`"
+          },
+          "response": []
         },
         {
-          "name": "Create Voter",
-          "description": "Create a new voter record in the registry. Validates that the district and polling station exist. Sets status to `registered`.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 201', function () {",
-                  "    pm.response.to.have.status(201);",
-                  "});",
-                  "",
-                  "var data = pm.response.json();",
-                  "if (data.id) {",
-                  "    pm.collectionVariables.set('voter_id', data.id);",
-                  "    pm.collectionVariables.set('voter_token', data.voter_token);",
-                  "    console.log('voter_id set to', data.id);",
-                  "}"
-                ]
-              }
-            }
-          ],
+          "name": "Register a new voter",
           "request": {
             "method": "POST",
             "header": [
@@ -966,112 +1295,81 @@
                 "value": "application/json"
               }
             ],
+            "url": {
+              "raw": "{{base_url}}/voters",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "voters"
+              ]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"voter_token\": \"RW-001-001-0042\",\n  \"registration_ref\": \"REG-KGL-2024-0042\",\n  \"national_id\": \"1199870012345678\",\n  \"first_name\": \"Amina\",\n  \"last_name\": \"Uwimana\",\n  \"sex\": \"female\",\n  \"date_of_birth\": \"1987-03-15\",\n  \"phone\": \"+250788123456\",\n  \"district_id\": \"{{district_id}}\",\n  \"polling_station_id\": \"{{station_id}}\",\n  \"roll_position\": 42\n}",
+              "raw": "{\n  \"voter_token\": \"string\",\n  \"registration_ref\": \"string\",\n  \"national_id\": \"string\",\n  \"first_name\": \"string\",\n  \"last_name\": \"string\",\n  \"sex\": \"male\",\n  \"date_of_birth\": \"1990-01-01\",\n  \"phone\": \"string\",\n  \"district_id\": \"00000000-0000-0000-0000-000000000000\",\n  \"polling_station_id\": \"00000000-0000-0000-0000-000000000000\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
             },
-            "url": {
-              "raw": "{{baseUrl}}/voters",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "voters"
-              ]
-            }
-          }
+            "description": "`POST /voters` \u2014 Auth: Bearer {{access_token}}\n\nCreate a new voter record in the registry.  \n\nBoth `district_id` and `polling_station_id` must reference existing geography records \u2014 returns **400** if either is missing.  The voter is created with status `registered` and no biometric template."
+          },
+          "response": []
         },
         {
-          "name": "Get Voter by Token",
-          "description": "Look up a voter by their human-readable voter token (e.g. RW-001-001-0042). Used by field officers to pull up voter details quickly.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
-                ]
-              }
-            }
-          ],
+          "name": "Lookup voter by voter token",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/voters/by-token/{{voter_token}}",
+              "raw": "{{base_url}}/voters/by-token/:voter_token",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
                 "voters",
                 "by-token",
-                "{{voter_token}}"
+                ":voter_token"
+              ],
+              "variable": [
+                {
+                  "key": "voter_token",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
               ]
-            }
-          }
+            },
+            "description": "`GET /voters/by-token/{voter_token}` \u2014 Auth: Bearer {{access_token}}\n\nRetrieve a voter record using the unique `voter_token` printed on their voter card.  This is the primary lookup used at registration desks before biometric enrolment.\n\n**Path params:** `voter_token`"
+          },
+          "response": []
         },
         {
-          "name": "Get Voter by ID",
-          "description": "Retrieve a voter record by their internal UUID.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "pm.test('Voter has required fields', function () {",
-                  "    var data = pm.response.json();",
-                  "    pm.expect(data).to.have.property('id');",
-                  "    pm.expect(data).to.have.property('voter_token');",
-                  "    pm.expect(data).to.have.property('status');",
-                  "});"
-                ]
-              }
-            }
-          ],
+          "name": "Get a single voter by UUID",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/voters/{{voter_id}}",
+              "raw": "{{base_url}}/voters/:voter_id",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
                 "voters",
-                "{{voter_id}}"
+                ":voter_id"
+              ],
+              "variable": [
+                {
+                  "key": "voter_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
               ]
-            }
-          }
+            },
+            "description": "`GET /voters/{voter_id}` \u2014 Auth: Bearer {{access_token}}\n\nRetrieve the full profile of a voter by their internal UUID primary key.  Use `GET /voters/by-token/{voter_token}` when you only have the voter card token.\n\n**Path params:** `voter_id`"
+          },
+          "response": []
         },
         {
-          "name": "Update Voter",
-          "description": "Update mutable fields on a voter record: first_name, last_name, phone, roll_position. Changes are logged to the audit trail with before/after diffs.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
-                ]
-              }
-            }
-          ],
+          "name": "Update a voter's personal details",
           "request": {
             "method": "PATCH",
             "header": [
@@ -1080,174 +1378,141 @@
                 "value": "application/json"
               }
             ],
+            "url": {
+              "raw": "{{base_url}}/voters/:voter_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "voters",
+                ":voter_id"
+              ],
+              "variable": [
+                {
+                  "key": "voter_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"phone\": \"+250788654321\",\n  \"roll_position\": 43\n}",
+              "raw": "{\n  \"first_name\": \"string\",\n  \"last_name\": \"string\",\n  \"phone\": \"string\",\n  \"roll_position\": 0\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
             },
-            "url": {
-              "raw": "{{baseUrl}}/voters/{{voter_id}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "voters",
-                "{{voter_id}}"
-              ]
-            }
-          }
+            "description": "`PATCH /voters/{voter_id}` \u2014 Auth: Bearer {{access_token}}\n\nPartially update a voter record (PATCH semantics \u2014 only supplied fields are changed).  \n\nUpdatable fields: `first_name`, `last_name`, `phone`, `roll_position`.  All changes are logged to the audit trail with a field-level diff.\n\n**Path params:** `voter_id`"
+          },
+          "response": []
         },
         {
-          "name": "Block Voter",
-          "description": "Block a voter with a mandatory reason. Blocked voters cannot be verified at the polling station. Sets status to `blocked` and logs the action.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "pm.test('Voter blocked', function () {",
-                  "    var data = pm.response.json();",
-                  "    pm.expect(data.status).to.eql('blocked');",
-                  "});"
-                ]
-              }
-            }
-          ],
+          "name": "Block a voter from participating",
           "request": {
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/voters/{{voter_id}}:block?reason=Suspected identity fraud&note=Biometric match with flagged record",
+              "raw": "{{base_url}}/voters/{voter_id}:block",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
                 "voters",
-                "{{voter_id}}:block"
+                "{voter_id}:block"
               ],
               "query": [
                 {
                   "key": "reason",
-                  "value": "Suspected identity fraud",
-                  "description": "Mandatory reason for blocking"
+                  "value": "string",
+                  "disabled": false
                 },
                 {
                   "key": "note",
-                  "value": "Biometric match with flagged record",
-                  "description": "Optional additional note"
+                  "value": "",
+                  "disabled": true
                 }
               ]
-            }
-          }
+            },
+            "description": "`POST /voters/{voter_id}:block` \u2014 Auth: Bearer {{access_token}}\n\nSet the voter's status to `blocked` with a mandatory `reason` string.  A blocked voter cannot be verified or cast a vote.  Use `POST /voters/{voter_id}:restore` to reverse the block.\n\n**Path params:** `voter_id`\n**Query params:** `reason`, `note`"
+          },
+          "response": []
         },
         {
-          "name": "Archive Voter",
-          "description": "Archive a voter record. Sets status to `archived`. Archived records are retained for audit purposes but excluded from active verification.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "pm.test('Voter archived', function () {",
-                  "    var data = pm.response.json();",
-                  "    pm.expect(data.status).to.eql('archived');",
-                  "});"
-                ]
-              }
-            }
-          ],
+          "name": "Archive a voter record",
           "request": {
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/voters/{{voter_id}}:archive",
+              "raw": "{{base_url}}/voters/{voter_id}:archive",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
                 "voters",
-                "{{voter_id}}:archive"
+                "{voter_id}:archive"
               ]
-            }
-          }
+            },
+            "description": "`POST /voters/{voter_id}:archive` \u2014 Auth: Bearer {{access_token}}\n\nMove a voter to `archived` status.  Archived voters are excluded from active registry counts and cannot participate in elections.  Typically used after a duplicate merge operation (the loser record is archived).\n\n**Path params:** `voter_id`"
+          },
+          "response": []
         },
         {
-          "name": "Restore Voter",
-          "description": "Restore a blocked or archived voter back to `registered` status.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "pm.test('Voter restored', function () {",
-                  "    var data = pm.response.json();",
-                  "    pm.expect(data.status).to.eql('restored');",
-                  "});"
-                ]
-              }
-            }
-          ],
+          "name": "Restore a blocked or archived voter",
           "request": {
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/voters/{{voter_id}}:restore",
+              "raw": "{{base_url}}/voters/{voter_id}:restore",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
                 "voters",
-                "{{voter_id}}:restore"
+                "{voter_id}:restore"
               ]
-            }
-          }
+            },
+            "description": "`POST /voters/{voter_id}:restore` \u2014 Auth: Bearer {{access_token}}\n\nReset a voter's status back to `registered`, reversing a previous block or archive action.  The restored voter regains the ability to be verified and to vote.\n\n**Path params:** `voter_id`"
+          },
+          "response": []
         },
         {
-          "name": "Export Voters (CSV)",
-          "description": "Export the full voter registry as a CSV file. Returns a streaming CSV download with headers: voter_token, registration_ref, first_name, last_name, sex, date_of_birth, status, district_id, polling_station_id.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "pm.test('Content-Type is CSV', function () {",
-                  "    pm.expect(pm.response.headers.get('Content-Type')).to.include('text/csv');",
-                  "});"
-                ]
-              }
-            }
-          ],
+          "name": "Bulk-import voters from a CSV file",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/voters:import",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "voters:import"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "value": "string",
+                  "type": "text"
+                }
+              ]
+            },
+            "description": "`POST /voters:import` \u2014 Auth: Bearer {{access_token}}\n\nUpload a UTF-8 CSV file to create multiple voter records in a single transaction.  \n\n**Expected CSV columns** (header row required):  \n`voter_token`, `registration_ref`, `national_id`, `first_name`, `last_name`, `sex` (`male`/`female`), `date_of_birth` (ISO 8601), `phone`, `district_id` (UUID), `polling_station_id` (UUID).\n\nRows that fail validation are counted as `rejected` and skipped \u2014 the rest are committed."
+          },
+          "response": []
+        },
+        {
+          "name": "Export all voters as CSV",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/voters:export?format=csv",
+              "raw": "{{base_url}}/voters:export",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
                 "voters:export"
@@ -1255,453 +1520,292 @@
               "query": [
                 {
                   "key": "format",
-                  "value": "csv"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "Import Voters (CSV)",
-          "description": "Bulk-import voters from a CSV file. Expected columns: voter_token, registration_ref, national_id, first_name, last_name, sex, date_of_birth, phone, district_id, polling_station_id. Returns count of added, flagged, and rejected rows.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "pm.test('Import results returned', function () {",
-                  "    var data = pm.response.json();",
-                  "    pm.expect(data).to.have.property('added');",
-                  "    pm.expect(data).to.have.property('rejected');",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "file",
-                  "type": "file",
-                  "src": "",
-                  "description": "CSV file to import. Must have headers: voter_token,registration_ref,national_id,first_name,last_name,sex,date_of_birth,phone,district_id,polling_station_id"
+                  "value": "csv",
+                  "disabled": true
                 }
               ]
             },
-            "url": {
-              "raw": "{{baseUrl}}/voters:import",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "voters:import"
-              ]
-            }
-          }
+            "description": "`GET /voters:export` \u2014 Auth: Bearer {{access_token}}\n\nDownload the complete voter registry as a CSV file.  The response streams a `text/csv` attachment named `voters.csv`.  An audit entry is written recording who exported the data and when.\n**Query params:** `format`"
+          },
+          "response": []
         },
         {
-          "name": "Registry Health",
-          "description": "Get a health summary of the voter registry: total voters, breakdown by status (registered, voted, flagged, blocked), and data quality indicator.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "pm.test('Registry health has expected fields', function () {",
-                  "    var data = pm.response.json();",
-                  "    pm.expect(data).to.have.property('total_voters');",
-                  "    pm.expect(data).to.have.property('registered');",
-                  "    pm.expect(data).to.have.property('voted');",
-                  "    pm.expect(data).to.have.property('data_quality');",
-                  "});"
-                ]
-              }
-            }
-          ],
+          "name": "Registry health snapshot",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/registry/health",
+              "raw": "{{base_url}}/registry/health",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
                 "registry",
                 "health"
               ]
-            }
-          }
+            },
+            "description": "`GET /registry/health` \u2014 Auth: Bearer {{access_token}}\n\nReturns a quick summary of voter record counts broken down by status.  Useful as a dashboard widget to monitor registry data quality."
+          },
+          "response": []
+        },
+        {
+          "name": "Flag a voter for manual review",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/voters/{voter_id}:flag",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "voters",
+                "{voter_id}:flag"
+              ],
+              "query": [
+                {
+                  "key": "reason",
+                  "value": "string",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "`POST /voters/{voter_id}:flag` \u2014 Auth: Bearer {{access_token}}\n\nSet the voter's status to `flagged`, marking them for manual review.  A `reason` query parameter is required and logged to the audit trail.  A flagged voter can still be verified but is highlighted in reports.  Use `POST /voters/{voter_id}:restore` to clear the flag.\n\n**Path params:** `voter_id`\n**Query params:** `reason`"
+          },
+          "response": []
+        },
+        {
+          "name": "Verification history for a voter",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/voters/:voter_id/verifications",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "voters",
+                ":voter_id",
+                "verifications"
+              ],
+              "variable": [
+                {
+                  "key": "voter_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            },
+            "description": "`GET /voters/{voter_id}/verifications` \u2014 Auth: Bearer {{access_token}}\n\nReturns all biometric verification attempts recorded for a specific voter, ordered newest-first.  Includes result, confidence, liveness, and timestamp for each.\n\n**Path params:** `voter_id`"
+          },
+          "response": []
         }
       ]
     },
     {
-      "name": "Biometrics",
-      "description": "Face biometric enrolment using ArcFace 512-d embeddings with AES-256-GCM encryption at rest. A 1:N FAISS deduplication scan runs automatically at enrolment.",
+      "name": "biometrics",
+      "description": "Face biometric enrolment using ArcFace 512-d L2-normalized embeddings with AES-256-GCM encryption at rest and a passive liveness check.  A 1:N FAISS deduplication scan runs automatically at enrolment and creates fraud cases when cosine similarity exceeds the configured dedup threshold.",
       "item": [
         {
-          "name": "Enroll Face Biometric",
-          "description": "Enrol a voter's face biometric. Accepts a multipart form with voter_id and face_image (base64-encoded JPEG/PNG). Runs liveness detection, quality assessment, and 1:N deduplication check. Creates a fraud case if a near-duplicate is found.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200 or 201', function () {",
-                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
-                  "});",
-                  "",
-                  "if (pm.response.code === 200 || pm.response.code === 201) {",
-                  "    pm.test('Enrollment response has quality score', function () {",
-                  "        var data = pm.response.json();",
-                  "        pm.expect(data).to.have.property('quality_score');",
-                  "        pm.expect(data).to.have.property('liveness_passed');",
-                  "    });",
-                  "}"
-                ]
-              }
-            }
-          ],
+          "name": "Re-enrol a voter's face biometric (replace existing template)",
           "request": {
-            "method": "POST",
+            "method": "PUT",
             "header": [],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "voter_id",
-                  "value": "{{voter_id}}",
-                  "type": "text",
-                  "description": "UUID of the voter to enrol"
-                },
-                {
-                  "key": "face_image",
-                  "value": "/9j/4AAQSkZJRgABAQEASABIAAD/placeholder-base64-image==",
-                  "type": "text",
-                  "description": "Base64-encoded face image (JPEG or PNG). Replace with real base64 data."
-                }
-              ]
-            },
             "url": {
-              "raw": "{{baseUrl}}/biometrics/enroll",
+              "raw": "{{base_url}}/biometrics/enroll",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
                 "biometrics",
                 "enroll"
               ]
-            }
-          }
+            },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "voter_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                },
+                {
+                  "key": "face_image",
+                  "value": "string"
+                }
+              ]
+            },
+            "description": "`PUT /biometrics/enroll` \u2014 Auth: Bearer {{access_token}}\n\nReplaces the existing face biometric template for a voter with a new one.  \n\nThe pipeline is identical to `POST /biometrics/enroll` but deletes the previous template before storing the new one.  A `BIOMETRIC_RE_ENROLLED` audit entry is written.  Use this when a voter's face has changed significantly (e.g. after surgery or a long time since original enrolment)."
+          },
+          "response": []
         },
         {
-          "name": "Get Biometric Quality",
-          "description": "Retrieve the biometric quality score and enrollment metadata for a specific voter. Returns quality score, liveness result, and capture timestamp.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
-                ]
-              }
-            }
-          ],
+          "name": "Enrol a voter's face biometric",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/biometrics/enroll",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "biometrics",
+                "enroll"
+              ]
+            },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "voter_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                },
+                {
+                  "key": "face_image",
+                  "value": "string"
+                }
+              ]
+            },
+            "description": "`POST /biometrics/enroll` \u2014 Auth: Bearer {{access_token}}\n\nFull biometric enrolment pipeline for a single voter:  \n\n1. Decode the Base64 face image.\n2. Run **ArcFace** inference to produce a 512-dimensional embedding.\n3. Perform **passive liveness detection** \u2014 rejects spoofed/printed photos.\n4. Encrypt the embedding with **AES-256-GCM** (random 96-bit nonce per template).\n5. Add the embedding to the **FAISS** flat-L2 index and record the `faiss_id`.\n6. Persist the `BiometricTemplate` row.\n7. Run **1:N deduplication** \u2014 if any existing template has cosine similarity above the configured threshold, a `DuplicateMatch` and `FraudCase` are auto-created.\n\n**Form fields:**  \n- `voter_id` \u2014 UUID of the voter to enrol.\n- `face_image` \u2014 Base64-encoded JPEG or PNG face image."
+          },
+          "response": []
+        },
+        {
+          "name": "Get biometric template quality for a voter",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/biometrics/quality/{{voter_id}}",
+              "raw": "{{base_url}}/biometrics/quality/:voter_id",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
                 "biometrics",
                 "quality",
-                "{{voter_id}}"
-              ]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Verification",
-      "description": "Election-day 1:1 face verification and double-vote-protected vote casting. The verify endpoint is public (no JWT required) so field officers can call it directly from polling station devices.",
-      "item": [
-        {
-          "name": "Get Verification Attempt by ID",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/verifications/{{attempt_id}}",
-              "host": [
-                "{{baseUrl}}"
+                ":voter_id"
               ],
-              "path": [
-                "verifications",
-                "{{attempt_id}}"
-              ]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
+              "variable": [
                 {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
+                  "key": "voter_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
                 }
               ]
             },
-            "description": "Retrieve a single verification attempt by its UUID."
-          }
+            "description": "`GET /biometrics/quality/{voter_id}` \u2014 Auth: Bearer {{access_token}}\n\nReturns the quality score, liveness result, and capture timestamp for the face biometric template enrolled for the given voter.  \n\n**Quality score** is a proxy derived from the L2 norm of the ArcFace embedding (well-normalised embeddings score close to 1.0).  Returns **404** if no template has been enrolled yet.\n\n**Path params:** `voter_id`"
+          },
+          "response": []
         },
         {
-          "name": "Verify Voter (1:1 Face Match)",
-          "description": "Perform a 1:1 biometric verification against a voter's enrolled template. Public endpoint \u2014 no JWT required. Accepts voter_token, polling_station_id, officer_id, and face_image. Returns a decision panel with confidence score, liveness result, flags, and explainability breakdown.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "pm.test('Verification response has result field', function () {",
-                  "    var data = pm.response.json();",
-                  "    pm.expect(data).to.have.property('result');",
-                  "    pm.expect(data).to.have.property('confidence');",
-                  "});",
-                  "",
-                  "var data = pm.response.json();",
-                  "if (data.id) {",
-                  "    pm.collectionVariables.set('attempt_id', data.id);",
-                  "    console.log('attempt_id set to', data.id);",
-                  "}"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "auth": {
-              "type": "noauth"
-            },
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"voter_token\": \"{{voter_token}}\",\n  \"polling_station_id\": \"{{station_id}}\",\n  \"officer_id\": \"{{officer_id}}\",\n  \"face_image\": \"<base64-encoded-face-image>\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/verifications",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "verifications"
-              ]
-            }
-          }
-        },
-        {
-          "name": "List Verification Attempts",
-          "description": "List all verification attempts. Returns a paginated list with result, confidence, liveness, and flags for each attempt.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
-                ]
-              }
-            }
-          ],
+          "name": "List all biometric templates with pagination",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/verifications",
+              "raw": "{{base_url}}/biometrics/templates",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
-                "verifications"
+                "biometrics",
+                "templates"
+              ],
+              "query": [
+                {
+                  "key": "skip",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": true
+                }
               ]
-            }
-          }
+            },
+            "description": "`GET /biometrics/templates` \u2014 Auth: Bearer {{access_token}}\n\nReturns a paginated list of all enrolled biometric templates across all voters.  \n\nEach item includes the voter UUID, modality, quality score, liveness result, capture timestamp, FAISS index ID, and template UUID.\n**Query params:** `skip`, `limit`"
+          },
+          "response": []
         },
         {
-          "name": "Get Verification Attempt",
-          "description": "Retrieve a specific verification attempt by UUID. Returns full decision panel including confidence, liveness, flags, and AI explainability breakdown.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
-                ]
-              }
-            }
-          ],
+          "name": "Delete the biometric template for a voter",
           "request": {
-            "method": "GET",
+            "method": "DELETE",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/verifications/{{attempt_id}}",
+              "raw": "{{base_url}}/biometrics/templates/:voter_id",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
-                "verifications",
-                "{{attempt_id}}"
+                "biometrics",
+                "templates",
+                ":voter_id"
+              ],
+              "variable": [
+                {
+                  "key": "voter_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
               ]
-            }
-          }
+            },
+            "description": "`DELETE /biometrics/templates/{voter_id}` \u2014 Auth: Bearer {{access_token}}\n\nPermanently removes the face biometric template enrolled for the given voter.  \n\n**Warning:** this is a hard delete \u2014 the template cannot be recovered.  The voter will need to be re-enrolled before they can be biometrically verified.  An audit entry is written for every deletion.\n\n**Path params:** `voter_id`"
+          },
+          "response": []
         },
         {
-          "name": "Override Verification Decision",
-          "description": "Manually override the AI decision on a verification attempt. Used when a supervisor reviews a case flagged for manual review and decides to approve or reject.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
-                ]
-              }
-            }
-          ],
+          "name": "Re-run 1:N deduplication scan for a voter",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"override_result\": \"approved\",\n  \"note\": \"Supervisor manually verified identity via ID document cross-check\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
+            "header": [],
             "url": {
-              "raw": "{{baseUrl}}/verifications/{{attempt_id}}:override",
+              "raw": "{{base_url}}/biometrics/dedup-scan/:voter_id",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
-                "verifications",
-                "{{attempt_id}}:override"
+                "biometrics",
+                "dedup-scan",
+                ":voter_id"
+              ],
+              "variable": [
+                {
+                  "key": "voter_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
               ]
-            }
-          }
+            },
+            "description": "`POST /biometrics/dedup-scan/{voter_id}` \u2014 Auth: Bearer {{access_token}}\n\nRe-runs the 1:N FAISS deduplication scan for a voter's existing enrolled template.  \n\nRetrieves the stored encrypted template, decrypts and re-embeds the raw bytes, then searches the FAISS index for near-duplicates above the configured `dedup_threshold`.  \n\nAny hits that are not already recorded as `DuplicateMatch` records will be created, together with associated `FraudCase` entries.  Returns the list of duplicate hits found.\n\n**Path params:** `voter_id`"
+          },
+          "response": []
         },
         {
-          "name": "Station Verification Log",
-          "description": "Retrieve the verification log for a specific polling station. Returns all verification attempts processed at that station, useful for station-level monitoring.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
-                ]
-              }
-            }
-          ],
+          "name": "Biometric enrollment statistics",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/verifications/station/{{station_id}}/log",
+              "raw": "{{base_url}}/biometrics/stats",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
-                "verifications",
-                "station",
-                "{{station_id}}",
-                "log"
+                "biometrics",
+                "stats"
               ]
-            }
-          }
+            },
+            "description": "`GET /biometrics/stats` \u2014 Auth: Bearer {{access_token}}\n\nReturns enrollment coverage across the entire voter registry:  \n\n- `total_voters` \u2014 all registered voters.\n- `enrolled` \u2014 voters with at least one biometric template on file.\n- `not_enrolled` \u2014 voters still pending biometric registration.\n- `enrollment_rate` \u2014 percentage enrolled.\n- `by_modality` \u2014 count of enrolled templates per biometric modality."
+          },
+          "response": []
         }
       ]
     },
     {
-      "name": "Votes",
-      "description": "Double-vote-protected vote casting. Uses a PostgreSQL SELECT FOR UPDATE row-lock to prevent concurrent duplicate votes.",
+      "name": "verification",
+      "description": "Election-day 1:1 face verification and double-vote-protected vote casting.  The verify endpoint is public (no JWT) \u2014 field officers call it directly.  Vote casting uses a PostgreSQL row-lock to prevent concurrent double-votes.",
       "item": [
         {
-          "name": "Cast Vote",
-          "description": "Record that a voter has voted. Uses a PostgreSQL row-lock to prevent concurrent double-votes. Requires voter_id, officer_id, and polling_station_id. Updates voter status to `voted` atomically.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200 or 201', function () {",
-                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
-                  "});",
-                  "",
-                  "if (pm.response.code === 200 || pm.response.code === 201) {",
-                  "    pm.test('Vote cast response has status voted', function () {",
-                  "        var data = pm.response.json();",
-                  "        pm.expect(data.status).to.eql('voted');",
-                  "    });",
-                  "}"
-                ]
-              }
-            }
-          ],
+          "name": "Election-day 1:1 biometric verification",
           "request": {
             "method": "POST",
             "header": [
@@ -1710,341 +1814,395 @@
                 "value": "application/json"
               }
             ],
+            "url": {
+              "raw": "{{base_url}}/verifications",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "verifications"
+              ]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"voter_id\": \"{{voter_id}}\",\n  \"officer_id\": \"{{officer_id}}\",\n  \"polling_station_id\": \"{{station_id}}\"\n}",
+              "raw": "{\n  \"voter_token\": \"string\",\n  \"polling_station_id\": \"00000000-0000-0000-0000-000000000000\",\n  \"officer_id\": \"00000000-0000-0000-0000-000000000000\",\n  \"face_image\": \"string\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
             },
+            "description": "`POST /verifications` \u2014 Auth: public (no token)\n\nCore election-day endpoint \u2014 verifies a voter's identity by comparing a live face image against the stored ArcFace template.  \n\n**No JWT required** \u2014 this endpoint is called by field-officer devices using only a voter token and a live camera frame.\n\n**Decision pipeline:**\n1. Look up voter by `voter_token`.\n2. Check eligibility (blocked/archived voters are rejected).\n3. Retrieve and AES-256-GCM decrypt the stored embedding.\n4. Embed the live face with ArcFace and compute cosine similarity.\n5. Run liveness detection \u2014 liveness failure penalises confidence by \u22120.20.\n6. Apply thresholds: `approved` \u2265 face_match_threshold, `manual_review` \u2265 review_floor, otherwise `rejected`.\n7. Persist a `VerificationAttempt` row and write audit log.\n\nReturns a `DecisionPanel` JSON with full explainability breakdown."
+          },
+          "response": []
+        },
+        {
+          "name": "List verification attempts with pagination",
+          "request": {
+            "method": "GET",
+            "header": [],
             "url": {
-              "raw": "{{baseUrl}}/votes",
+              "raw": "{{base_url}}/verifications",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
+              ],
+              "path": [
+                "verifications"
+              ],
+              "query": [
+                {
+                  "key": "skip",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": true
+                },
+                {
+                  "key": "station_id",
+                  "value": "00000000-0000-0000-0000-000000000000",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "`GET /verifications` \u2014 Auth: Bearer {{access_token}}\n\nRetrieve a paginated list of all verification attempts across all polling stations.  \n\n**Query parameters:**\n- `skip` / `limit` \u2014 pagination offset and page size (default 50).\n- `station_id` \u2014 optional UUID to filter attempts by polling station.\n\nResults are ordered newest-first.\n**Query params:** `skip`, `limit`, `station_id`"
+          },
+          "response": []
+        },
+        {
+          "name": "Get a single verification attempt by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/verifications/:attempt_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "verifications",
+                ":attempt_id"
+              ],
+              "variable": [
+                {
+                  "key": "attempt_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            },
+            "description": "`GET /verifications/{attempt_id}` \u2014 Auth: Bearer {{access_token}}\n\nRetrieve the full record of a single verification attempt by its UUID.  Returns the complete decision breakdown including face score, confidence, liveness, flags, and explanation.\n\n**Path params:** `attempt_id`"
+          },
+          "response": []
+        },
+        {
+          "name": "Cast a vote \u2014 atomically marks voter as voted",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/votes",
+              "host": [
+                "{{base_url}}"
               ],
               "path": [
                 "votes"
               ]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Fraud Cases",
-      "description": "Fraud cases auto-created by the biometric enrolment pipeline when a 1:N match exceeds the similarity threshold. Operators can dismiss or escalate cases.",
-      "item": [
-        {
-          "name": "List Fraud Cases",
-          "description": "Retrieve all fraud cases. Returns case ID, type, risk level, score, verdict, and linked voter/station details.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "var data = pm.response.json();",
-                  "if (Array.isArray(data) && data.length > 0) {",
-                  "    pm.collectionVariables.set('case_id', data[0].id);",
-                  "    console.log('case_id set to', data[0].id);",
-                  "}"
-                ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"voter_id\": \"00000000-0000-0000-0000-000000000000\",\n  \"officer_id\": \"00000000-0000-0000-0000-000000000000\",\n  \"polling_station_id\": \"00000000-0000-0000-0000-000000000000\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
               }
-            }
-          ],
+            },
+            "description": "`POST /votes` \u2014 Auth: public (no token)\n\nAtomically marks a voter as `voted` using a PostgreSQL `SELECT \u2026 FOR UPDATE` row-lock.  \n\n**Double-vote protection:**  \nIf two concurrent requests arrive for the same voter, the second blocks on the lock, then detects `status == voted` and returns **409 Conflict** \u2014 the vote is not counted twice.  \n\n**Preconditions:**  \n- Voter must exist.\n- Status must be `registered` or `verified` \u2014 `blocked`, `flagged`, and `archived` are rejected.\n- `status == voted` returns 409 (double-vote attempt, also logged to audit).\n\nNo JWT required \u2014 field officers call this directly after verification."
+          },
+          "response": []
+        },
+        {
+          "name": "Override a verification decision (manual review)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/verifications/{attempt_id}:override",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "verifications",
+                "{attempt_id}:override"
+              ],
+              "query": [
+                {
+                  "key": "override_result",
+                  "value": "string",
+                  "disabled": false
+                },
+                {
+                  "key": "reason",
+                  "value": "string",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "`POST /verifications/{attempt_id}:override` \u2014 Auth: Bearer {{access_token}}\n\nAllows a supervisor to override the automated verification result of an attempt that was flagged for manual review.  \n\n**Parameters:**\n- `override_result` \u2014 new result string (`approved`, `rejected`, or `manual_review`).\n- `reason` \u2014 mandatory justification text written to the audit log.\n\nSets `review_required` to `false` after override.\n\n**Path params:** `attempt_id`\n**Query params:** `override_result`, `reason`"
+          },
+          "response": []
+        },
+        {
+          "name": "Get verification log for a polling station",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/fraud/cases",
+              "raw": "{{base_url}}/verifications/station/:station_id/log",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
+              ],
+              "path": [
+                "verifications",
+                "station",
+                ":station_id",
+                "log"
+              ],
+              "variable": [
+                {
+                  "key": "station_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            },
+            "description": "`GET /verifications/station/{station_id}/log` \u2014 Auth: Bearer {{access_token}}\n\nReturns all verification attempts recorded at a specific polling station, ordered newest-first, together with an aggregate summary (approved / manual_review / rejected counts).  \n\nUseful for supervisors monitoring a station in real time.\n\n**Path params:** `station_id`"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "fraud",
+      "description": "Fraud cases, 1:N biometric duplicate matches, and real-time anomaly signal management.  Cases are auto-created by the biometric enrolment pipeline; operators can dismiss, escalate, or merge duplicate voter records.",
+      "item": [
+        {
+          "name": "List fraud cases with pagination",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/fraud/cases",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "fraud",
+                "cases"
+              ],
+              "query": [
+                {
+                  "key": "skip",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "`GET /fraud/cases` \u2014 Auth: Bearer {{access_token}}\n\nReturns a paginated list of all fraud cases in the system.  \n\nFraud cases are auto-created by the 1:N biometric deduplication pipeline at enrolment time, or can be raised manually by supervisors.  Use `skip` and `limit` for pagination.\n**Query params:** `skip`, `limit`"
+          },
+          "response": []
+        },
+        {
+          "name": "Manually create a fraud case",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/fraud/cases",
+              "host": [
+                "{{base_url}}"
               ],
               "path": [
                 "fraud",
                 "cases"
               ]
-            }
-          }
-        },
-        {
-          "name": "Get Fraud Case",
-          "description": "Retrieve a specific fraud case by ID. Returns full case details including breakdown, timeline, assessment, and similarity score.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/fraud/cases/{{case_id}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "fraud",
-                "cases",
-                "{{case_id}}"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Dismiss Fraud Case",
-          "description": "Dismiss a fraud case, marking it as a false positive. Requires a resolution note. Sets resolution to `dismissed`.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"note\": \"Reviewed physical ID documents \u2014 confirmed false positive. Twins registered at different stations.\"\n}",
+              "raw": "{\n  \"type\": \"Impersonation\",\n  \"title\": \"string\",\n  \"risk_level\": \"critical\",\n  \"voter_id\": \"00000000-0000-0000-0000-000000000000\",\n  \"registration_ref\": \"string\",\n  \"polling_station_id\": \"00000000-0000-0000-0000-000000000000\",\n  \"detected_by\": \"string\",\n  \"face_score\": 0.0\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
             },
-            "url": {
-              "raw": "{{baseUrl}}/fraud/cases/{{case_id}}:dismiss",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "fraud",
-                "cases",
-                "{{case_id}}:dismiss"
-              ]
-            }
-          }
+            "description": "`POST /fraud/cases` \u2014 Auth: Bearer {{access_token}}\n\nRaise a fraud case manually (as opposed to auto-creation by the deduplication pipeline).  \n\nA unique case ID is generated in the format `FR-XXXXXX` using a random hex suffix.  An audit entry is written with action `CASE_CREATED`."
+          },
+          "response": []
         },
         {
-          "name": "Escalate Fraud Case",
-          "description": "Escalate a fraud case to a higher authority. Requires a reason. Sets risk level to high and flags the case for senior review.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"reason\": \"High similarity (0.97) with a voter from a different province. Requesting electoral commission review.\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/fraud/cases/{{case_id}}:escalate",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "fraud",
-                "cases",
-                "{{case_id}}:escalate"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Fraud Summary",
-          "description": "Get an aggregated summary of fraud cases: counts by type, risk level distribution, open vs. resolved counts.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
-                ]
-              }
-            }
-          ],
+          "name": "Get a single fraud case by ID",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/fraud/summary",
+              "raw": "{{base_url}}/fraud/cases/:case_id",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
+              ],
+              "path": [
+                "fraud",
+                "cases",
+                ":case_id"
+              ],
+              "variable": [
+                {
+                  "key": "case_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            },
+            "description": "`GET /fraud/cases/{case_id}` \u2014 Auth: Bearer {{access_token}}\n\nRetrieve the full details of a single fraud case by its string ID (e.g. `FR-A1B2C3`).  Returns **404** if the case does not exist.\n\n**Path params:** `case_id`"
+          },
+          "response": []
+        },
+        {
+          "name": "Dismiss a fraud case",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/fraud/cases/{case_id}:dismiss",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "fraud",
+                "cases",
+                "{case_id}:dismiss"
+              ]
+            },
+            "description": "`POST /fraud/cases/{case_id}:dismiss` \u2014 Auth: Bearer {{access_token}}\n\nMark a fraud case as `dismissed` \u2014 indicating an investigator has reviewed it and determined it is not a genuine fraud.  Sets `resolution = dismissed` and records `resolved_at`.  An audit entry is written.\n\n**Path params:** `case_id`"
+          },
+          "response": []
+        },
+        {
+          "name": "Escalate a fraud case",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/fraud/cases/{case_id}:escalate",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "fraud",
+                "cases",
+                "{case_id}:escalate"
+              ]
+            },
+            "description": "`POST /fraud/cases/{case_id}:escalate` \u2014 Auth: Bearer {{access_token}}\n\nMark a fraud case as `escalated` \u2014 forwarding it to a higher authority for further action.  Sets `resolution = escalated` and records `resolved_at`.  An audit entry is written.\n\n**Path params:** `case_id`"
+          },
+          "response": []
+        },
+        {
+          "name": "Fraud case count summary by type",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/fraud/summary",
+              "host": [
+                "{{base_url}}"
               ],
               "path": [
                 "fraud",
                 "summary"
               ]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Duplicates",
-      "description": "Biometric 1:N duplicate match management. Duplicates are auto-detected at enrolment time via FAISS similarity search. Operators can merge duplicate voter records.",
-      "item": [
-        {
-          "name": "Get Duplicate Match by ID",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/duplicates/{{match_id}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "duplicates",
-                "{{match_id}}"
-              ]
             },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "description": "Retrieve a single duplicate match by its UUID."
-          }
+            "description": "`GET /fraud/summary` \u2014 Auth: Bearer {{access_token}}\n\nReturns the total number of fraud cases and a breakdown by `FraudType`.  Useful as a top-level dashboard metric."
+          },
+          "response": []
         },
         {
-          "name": "List Duplicate Matches",
-          "description": "List all biometric duplicate matches. Each record has a similarity score and status (pending, merged, dismissed).",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "var data = pm.response.json();",
-                  "if (Array.isArray(data) && data.length > 0) {",
-                  "    pm.collectionVariables.set('match_id', data[0].id);",
-                  "    console.log('match_id set to', data[0].id);",
-                  "}"
-                ]
-              }
-            }
-          ],
+          "name": "List duplicate biometric matches with pagination",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/duplicates",
+              "raw": "{{base_url}}/duplicates",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
                 "duplicates"
+              ],
+              "query": [
+                {
+                  "key": "skip",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "disabled": true
+                }
               ]
-            }
-          }
+            },
+            "description": "`GET /duplicates` \u2014 Auth: Bearer {{access_token}}\n\nReturns a paginated list of `DuplicateMatch` records produced by the 1:N FAISS deduplication scan run at enrolment time.  \n\nFilter by `status` to see only pending, merged, or dismissed matches.  Each match links two voter IDs with a cosine similarity score.\n**Query params:** `skip`, `limit`, `status`"
+          },
+          "response": []
         },
         {
-          "name": "Get Duplicate Match",
-          "description": "Retrieve details of a specific duplicate match by UUID. Returns both voter records (A and B), similarity score, and resolution status.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
-                ]
-              }
-            }
-          ],
+          "name": "Get a single duplicate match by ID",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/duplicates/{{match_id}}",
+              "raw": "{{base_url}}/duplicates/:match_id",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
                 "duplicates",
-                "{{match_id}}"
+                ":match_id"
+              ],
+              "variable": [
+                {
+                  "key": "match_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
               ]
-            }
-          }
+            },
+            "description": "`GET /duplicates/{match_id}` \u2014 Auth: Bearer {{access_token}}\n\nRetrieve the full record of a single `DuplicateMatch` by its UUID.  Returns the two voter IDs, similarity score, status, and resolution metadata.\n\n**Path params:** `match_id`"
+          },
+          "response": []
         },
         {
-          "name": "Merge Duplicate Records",
-          "description": "Merge two duplicate voter records. The `survivor_id` specifies which record to keep. The other record is archived. Sets match status to `merged`.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
-                ]
-              }
-            }
-          ],
+          "name": "Merge duplicate voter records",
           "request": {
             "method": "POST",
             "header": [
@@ -2053,258 +2211,194 @@
                 "value": "application/json"
               }
             ],
+            "url": {
+              "raw": "{{base_url}}/duplicates/{match_id}:merge",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "duplicates",
+                "{match_id}:merge"
+              ]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"survivor_id\": \"{{voter_id}}\"\n}",
+              "raw": "{\n  \"survivor_id\": \"00000000-0000-0000-0000-000000000000\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
             },
-            "url": {
-              "raw": "{{baseUrl}}/duplicates/{{match_id}}:merge",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "duplicates",
-                "{{match_id}}:merge"
-              ]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Anomaly Signals",
-      "description": "Real-time anomaly signal management. Signals are generated by the AI anomaly detection pipeline when unusual patterns are detected (e.g., velocity spikes, geographic impossibilities).",
-      "item": [
+            "description": "`POST /duplicates/{match_id}:merge` \u2014 Auth: Bearer {{access_token}}\n\nResolve a duplicate match by designating one voter record as the **survivor** and archiving the other (the loser).  \n\n**Steps:**\n1. Identify loser: the voter in the match that is **not** `survivor_id`.\n2. Set loser's status to `archived`.\n3. Mark the `DuplicateMatch` as `merged` and record resolution metadata.\n4. Write an audit entry.\n\nThe `survivor_id` must be one of the two voter IDs in the match.\n\n**Path params:** `match_id`"
+          },
+          "response": []
+        },
         {
-          "name": "Get Anomaly by ID",
+          "name": "List anomaly signals with pagination",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/anomalies/{{anomaly_id}}",
+              "raw": "{{base_url}}/anomalies",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
-                "anomalies",
-                "{{anomaly_id}}"
-              ]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
+                "anomalies"
+              ],
+              "query": [
                 {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
+                  "key": "skip",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": true
                 }
               ]
             },
-            "description": "Retrieve a single anomaly signal by its string ID."
+            "description": "`GET /anomalies` \u2014 Auth: Bearer {{access_token}}\n\nReturns a paginated list of real-time anomaly signals detected by monitoring rules.  \n\nSignals include statistical deviations such as unexpected turnout spikes, rejection-rate anomalies, or unusually high duplicate rates.  Filter by `status` (e.g. `active`, `acknowledged`, `muted`).\n**Query params:** `skip`, `limit`"
           },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ]
+          "response": []
         },
         {
-          "name": "List Anomaly Signals",
-          "description": "List all anomaly signals. Returns signal ID, type, severity, description, and acknowledgement status.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
-                ]
-              }
-            }
-          ],
+          "name": "Manually create an anomaly signal",
           "request": {
-            "method": "GET",
-            "header": [],
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
-              "raw": "{{baseUrl}}/anomalies",
+              "raw": "{{base_url}}/anomalies",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
                 "anomalies"
               ]
-            }
-          }
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"severity\": \"critical\",\n  \"title\": \"string\",\n  \"description\": \"string\",\n  \"signal_name\": \"string\",\n  \"baseline\": 0.0,\n  \"observed\": 0.0,\n  \"unit\": \"string\",\n  \"affected_entities\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "`POST /anomalies` \u2014 Auth: Bearer {{access_token}}\n\nCreate an anomaly signal manually (e.g. from an external monitoring rule or script).  \n\nA unique anomaly ID is generated in the format `ANO-XXXXXX`.  An audit entry is written with action `ANOMALY_CREATED`."
+          },
+          "response": []
         },
         {
-          "name": "Get Anomaly Signal",
-          "description": "Retrieve details of a specific anomaly signal by ID.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
-                ]
-              }
-            }
-          ],
+          "name": "Get a single anomaly signal by ID",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/anomalies/{{anomaly_id}}",
+              "raw": "{{base_url}}/anomalies/:anomaly_id",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
                 "anomalies",
-                "{{anomaly_id}}"
+                ":anomaly_id"
+              ],
+              "variable": [
+                {
+                  "key": "anomaly_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
               ]
-            }
-          }
+            },
+            "description": "`GET /anomalies/{anomaly_id}` \u2014 Auth: Bearer {{access_token}}\n\nRetrieve the full record of a single anomaly signal by its string ID.  Returns the same field set as the list endpoint but for one specific signal.\n\n**Path params:** `anomaly_id`"
+          },
+          "response": []
         },
         {
-          "name": "Acknowledge Anomaly Signal",
-          "description": "Acknowledge an anomaly signal to mark it as reviewed. Requires a note explaining the review decision.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
-                ]
-              }
-            }
-          ],
+          "name": "Delete (resolve) an anomaly signal",
           "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"note\": \"Reviewed \u2014 velocity spike explained by early morning voter rush at Kigali City Hall station. No further action required.\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
+            "method": "DELETE",
+            "header": [],
             "url": {
-              "raw": "{{baseUrl}}/anomalies/{{anomaly_id}}:acknowledge",
+              "raw": "{{base_url}}/anomalies/:anomaly_id",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
                 "anomalies",
-                "{{anomaly_id}}:acknowledge"
+                ":anomaly_id"
+              ],
+              "variable": [
+                {
+                  "key": "anomaly_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
               ]
-            }
-          }
+            },
+            "description": "`DELETE /anomalies/{anomaly_id}` \u2014 Auth: Bearer {{access_token}}\n\nPermanently delete an anomaly signal.  An audit entry with action `ANOMALY_RESOLVED` is written before deletion.  Returns **204 No Content** on success.\n\n**Path params:** `anomaly_id`"
+          },
+          "response": []
         },
         {
-          "name": "Mute Anomaly Signal",
-          "description": "Mute an anomaly signal to suppress future notifications of the same type. Useful for known, benign patterns.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
-                ]
-              }
-            }
-          ],
+          "name": "Acknowledge an anomaly signal",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"duration_hours\": 24,\n  \"reason\": \"Known test pattern \u2014 muting for 24 hours during load testing window.\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
+            "header": [],
             "url": {
-              "raw": "{{baseUrl}}/anomalies/{{anomaly_id}}:mute",
+              "raw": "{{base_url}}/anomalies/{anomaly_id}:acknowledge",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
                 "anomalies",
-                "{{anomaly_id}}:mute"
+                "{anomaly_id}:acknowledge"
               ]
-            }
-          }
+            },
+            "description": "`POST /anomalies/{anomaly_id}:acknowledge` \u2014 Auth: Bearer {{access_token}}\n\nMark an anomaly signal as `acknowledged` \u2014 indicating that an operator has seen it and is investigating.  The signal remains visible (`is_live` unchanged) until explicitly muted or resolved.\n\n**Path params:** `anomaly_id`"
+          },
+          "response": []
+        },
+        {
+          "name": "Mute an anomaly signal",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/anomalies/{anomaly_id}:mute",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "anomalies",
+                "{anomaly_id}:mute"
+              ]
+            },
+            "description": "`POST /anomalies/{anomaly_id}:mute` \u2014 Auth: Bearer {{access_token}}\n\nSilence an anomaly signal by setting its status to `muted` and `is_live = false`.  Muted signals are hidden from live dashboards but remain in the database for audit purposes.\n\n**Path params:** `anomaly_id`"
+          },
+          "response": []
         }
       ]
     },
     {
-      "name": "Audit Log",
-      "description": "Append-only SHA-256 hash-chained audit log. Every write operation across the system produces an immutable audit entry. The verify-chain endpoint walks the full chain and reports any tampered rows.",
+      "name": "audit",
+      "description": "Append-only SHA-256 hash-chained audit log.  Every write operation across the system produces an immutable audit entry.  The `POST /audit:verify-chain` endpoint walks the full chain and reports any tampered rows.",
       "item": [
         {
-          "name": "List Audit Entries",
-          "description": "Retrieve a paginated list of audit log entries. Each entry includes the action, actor, service, timestamp, and hash-chain values.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "var data = pm.response.json();",
-                  "if (Array.isArray(data) && data.length > 0) {",
-                  "    pm.collectionVariables.set('audit_entry_id', data[0].id);",
-                  "    console.log('audit_entry_id set to', data[0].id);",
-                  "}"
-                ]
-              }
-            }
-          ],
+          "name": "List audit log entries with filtering",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/audit/entries?skip=0&limit=20",
+              "raw": "{{base_url}}/audit/entries",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
                 "audit",
@@ -2313,132 +2407,88 @@
               "query": [
                 {
                   "key": "skip",
-                  "value": "0"
+                  "value": "",
+                  "disabled": true
                 },
                 {
                   "key": "limit",
-                  "value": "20"
+                  "value": "100",
+                  "disabled": true
                 },
                 {
                   "key": "action",
-                  "value": "LOGIN",
-                  "description": "Filter by audit action",
+                  "value": "",
                   "disabled": true
                 },
                 {
                   "key": "actor_id",
-                  "value": "{{user_id}}",
-                  "description": "Filter by actor UUID",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "service",
+                  "value": "",
                   "disabled": true
                 }
               ]
-            }
-          }
+            },
+            "description": "`GET /audit/entries` \u2014 Auth: Bearer {{access_token}}\n\nBrowse the append-only audit log.  Results are ordered newest-first (by sequence number).  \n\n**Query parameters:**\n- `skip` / `limit` \u2014 pagination (default 100 per page).\n- `action` \u2014 filter by `AuditAction` enum value (e.g. `LOGIN`, `VOTER_VERIFIED`).\n- `actor_id` \u2014 filter by the UUID or string ID of the actor.\n- `service` \u2014 filter by originating service name (e.g. `Auth`, `Verification`).\n\nEvery write operation across the system (login, enrolment, vote, override, etc.) produces an immutable entry with a SHA-256 hash chaining it to the previous entry.\n**Query params:** `skip`, `limit`, `action`, `actor_id`, `service`"
+          },
+          "response": []
         },
         {
-          "name": "Get Audit Entry",
-          "description": "Retrieve a specific audit log entry by UUID. Returns the full entry including hash values for chain verification.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "pm.test('Audit entry has hash fields', function () {",
-                  "    var data = pm.response.json();",
-                  "    pm.expect(data).to.have.property('entry_hash');",
-                  "    pm.expect(data).to.have.property('prev_hash');",
-                  "    pm.expect(data).to.have.property('sequence');",
-                  "});"
-                ]
-              }
-            }
-          ],
+          "name": "Get a single audit entry by UUID",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/audit/entries/{{audit_entry_id}}",
+              "raw": "{{base_url}}/audit/entries/:entry_id",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
                 "audit",
                 "entries",
-                "{{audit_entry_id}}"
+                ":entry_id"
+              ],
+              "variable": [
+                {
+                  "key": "entry_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
               ]
-            }
-          }
+            },
+            "description": "`GET /audit/entries/{entry_id}` \u2014 Auth: Bearer {{access_token}}\n\nRetrieve one audit entry by its UUID primary key.  The entry includes its SHA-256 `entry_hash` and the `prev_hash` of the preceding entry, allowing manual chain verification.\n\n**Path params:** `entry_id`"
+          },
+          "response": []
         },
         {
-          "name": "Verify Audit Chain Integrity",
-          "description": "Walk the full SHA-256 hash chain and verify every entry. Reports the number of entries verified, any breaks found, the sequence number of the first break, and the duration. A healthy chain has breaks_found == 0.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "pm.test('No chain breaks found', function () {",
-                  "    var data = pm.response.json();",
-                  "    pm.expect(data.breaks_found).to.eql(0);",
-                  "});",
-                  "",
-                  "pm.test('Chain verification has required fields', function () {",
-                  "    var data = pm.response.json();",
-                  "    pm.expect(data).to.have.property('entries_walked');",
-                  "    pm.expect(data).to.have.property('breaks_found');",
-                  "    pm.expect(data).to.have.property('verified_at');",
-                  "});"
-                ]
-              }
-            }
-          ],
+          "name": "Verify SHA-256 hash-chain integrity",
           "request": {
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/audit:verify-chain",
+              "raw": "{{base_url}}/audit:verify-chain",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
                 "audit:verify-chain"
               ]
-            }
-          }
+            },
+            "description": "`POST /audit:verify-chain` \u2014 Auth: Bearer {{access_token}}\n\nWalk every entry in the audit log in sequence order and recompute each SHA-256 hash, checking it against the stored `entry_hash`.  \n\n**Tamper detection:**  If any database row has been modified (via direct SQL UPDATE or DELETE), the recomputed hash will differ from the stored value and a *break* is recorded.  \n\nReturns:\n- `entries_walked` \u2014 total rows checked.\n- `breaks_found` \u2014 number of hash mismatches.\n- `first_break_sequence` \u2014 sequence number of the earliest tampered entry (`null` if clean).\n- `duration_ms` \u2014 time taken for the full walk.\n\nThis is a **read-only** operation \u2014 it does not modify any data."
+          },
+          "response": []
         },
         {
-          "name": "Export Audit Log",
-          "description": "Export the full audit log as a downloadable file (CSV or JSON). Useful for compliance reporting and external audits.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
-                ]
-              }
-            }
-          ],
+          "name": "Export audit log as CSV",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/audit:export?format=csv",
+              "raw": "{{base_url}}/audit:export",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
                 "audit:export"
@@ -2447,125 +2497,431 @@
                 {
                   "key": "format",
                   "value": "csv",
-                  "description": "Export format: csv or json"
+                  "disabled": true
                 }
               ]
-            }
-          }
+            },
+            "description": "`GET /audit:export` \u2014 Auth: Bearer {{access_token}}\n\nDownload the complete audit log as a CSV file ordered by sequence number (oldest first).  \n\nThe CSV includes all fields needed for offline chain verification:  \n`sequence`, `occurred_at`, `action`, `actor_type`, `actor_id`, `actor_role`, `service`, `detail`, `entry_hash`, `prev_hash`.\n**Query params:** `format`"
+          },
+          "response": []
         }
       ]
     },
     {
-      "name": "Analytics",
-      "description": "Real-time turnout statistics, demographic breakdown by sex and district, and verification performance metrics.",
+      "name": "analytics",
+      "description": "Real-time turnout statistics, demographic breakdown by sex and district, and verification performance metrics (approval rate, average confidence).",
       "item": [
         {
-          "name": "Turnout Statistics",
-          "description": "Get real-time election turnout statistics. Returns total registered voters, total verified, total voted, and a breakdown by polling station.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "pm.test('Turnout stats has required fields', function () {",
-                  "    var data = pm.response.json();",
-                  "    pm.expect(data).to.have.property('total_registered');",
-                  "    pm.expect(data).to.have.property('total_verified');",
-                  "    pm.expect(data).to.have.property('total_voted');",
-                  "    pm.expect(data).to.have.property('by_station');",
-                  "});"
-                ]
-              }
-            }
-          ],
+          "name": "Real-time voter turnout statistics",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/analytics/turnout",
+              "raw": "{{base_url}}/analytics/turnout",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
                 "analytics",
                 "turnout"
               ]
-            }
-          }
+            },
+            "description": "`GET /analytics/turnout` \u2014 Auth: Bearer {{access_token}}\n\nReturns the current election-day turnout figures:  \n\n- `total_registered` \u2014 number of voters in the registry.\n- `total_verified` \u2014 voters who have been biometrically verified at least once today.\n- `total_voted` \u2014 voters whose status is `voted`.\n- `turnout_rate` \u2014 percentage of registered voters who have voted.\n- `by_station` \u2014 per-polling-station breakdown (registered, voted, turnout %).\n\nAll figures are computed in real time from the database."
+          },
+          "response": []
         },
         {
-          "name": "Demographics Breakdown",
-          "description": "Get demographic breakdown of verified voters by sex and district. Returns counts and percentages.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
-                ]
-              }
-            }
-          ],
+          "name": "Voter demographic breakdown",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/analytics/demographics",
+              "raw": "{{base_url}}/analytics/demographics",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
               ],
               "path": [
                 "analytics",
                 "demographics"
               ]
-            }
-          }
+            },
+            "description": "`GET /analytics/demographics` \u2014 Auth: Bearer {{access_token}}\n\nReturns demographic distribution of the voter registry:  \n\n- `by_sex` \u2014 count of `male` and `female` voters.\n- `by_district` \u2014 per-district registered voter count.\n\nThese figures reflect the registry at query time (not election-day snapshots)."
+          },
+          "response": []
         },
         {
-          "name": "Verification Statistics",
-          "description": "Get verification performance metrics: total attempts, approval rate, manual review rate, rejection rate, and average confidence score.",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "pm.test('Verification stats has required fields', function () {",
-                  "    var data = pm.response.json();",
-                  "    pm.expect(data).to.have.property('total_attempts');",
-                  "    pm.expect(data).to.have.property('approved');",
-                  "    pm.expect(data).to.have.property('average_confidence');",
-                  "});"
-                ]
-              }
-            }
-          ],
+          "name": "Live election-day dashboard",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/analytics/verification",
+              "raw": "{{base_url}}/analytics/live",
               "host": [
-                "{{baseUrl}}"
+                "{{base_url}}"
+              ],
+              "path": [
+                "analytics",
+                "live"
+              ]
+            },
+            "description": "`GET /analytics/live` \u2014 Auth: Bearer {{access_token}}\n\nCombined real-time dashboard aggregating turnout, verification performance, and active anomaly count in a single response.  Intended for the supervisor dashboard displayed on election day.  All figures are computed live."
+          },
+          "response": []
+        },
+        {
+          "name": "Verification attempt statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/analytics/verification",
+              "host": [
+                "{{base_url}}"
               ],
               "path": [
                 "analytics",
                 "verification"
               ]
-            }
-          }
+            },
+            "description": "`GET /analytics/verification` \u2014 Auth: Bearer {{access_token}}\n\nReturns aggregate statistics across all verification attempts:  \n\n- `total_attempts` \u2014 total number of verification calls made.\n- `approved` / `manual_review` / `rejected` \u2014 counts by decision outcome.\n- `average_confidence` \u2014 mean confidence score across all attempts (0.0 \u2013 1.0).\n- `approval_rate` \u2014 percentage of attempts that resulted in `approved`.\n\nNote: these counts include all attempts since system start, not just today."
+          },
+          "response": []
+        },
+        {
+          "name": "Biometric enrollment statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/analytics/enrollment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "analytics",
+                "enrollment"
+              ]
+            },
+            "description": "`GET /analytics/enrollment` \u2014 Auth: Bearer {{access_token}}\n\nReturns enrollment coverage across the voter registry:  \n\n- `total_voters` \u2014 total voters registered.\n- `enrolled` \u2014 voters with at least one biometric template.\n- `not_enrolled` \u2014 voters pending biometric registration.\n- `enrollment_rate` \u2014 percentage enrolled.\n- `by_district` \u2014 per-district enrolled count and rate."
+          },
+          "response": []
+        },
+        {
+          "name": "Fraud and anomaly analytics summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/analytics/fraud",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "analytics",
+                "fraud"
+              ]
+            },
+            "description": "`GET /analytics/fraud` \u2014 Auth: Bearer {{access_token}}\n\nReturns aggregate fraud metrics:  \n\n- `total_cases` \u2014 all fraud cases ever raised.\n- `open_cases` / `resolved_cases` \u2014 case status breakdown.\n- `by_type` \u2014 count per `FraudType`.\n- `by_risk_level` \u2014 count per `RiskLevel`.\n- `total_duplicates` \u2014 duplicate biometric matches.\n- `active_anomalies` \u2014 live anomaly signals."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "keys",
+      "description": "AES-256-GCM encryption key registry.  Each key record tracks its current version for rotation auditing.  The `POST /keys/{id}:rotate` endpoint increments the version and writes a `KEY_ROTATED` audit entry.  `GET /keys/health` simulates an HSM health probe.",
+      "item": [
+        {
+          "name": "HSM health check \u2014 list all key versions and algorithms",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/keys/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "keys",
+                "health"
+              ]
+            },
+            "description": "`GET /keys/health` \u2014 Auth: Bearer {{access_token}}\n\nReturns a summary of every registered encryption key including its current version number and algorithm.  This endpoint simulates a Hardware Security Module (HSM) health probe.  \n\nAn audit entry is written with action `HSM_HEALTHCHECK` so that health probes are traceable in the immutable audit log.  Use this endpoint from monitoring scripts to verify key availability and rotation state."
+          },
+          "response": []
+        },
+        {
+          "name": "List all encryption key records",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/keys",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "keys"
+              ]
+            },
+            "description": "`GET /keys` \u2014 Auth: Bearer {{access_token}}\n\nReturns all encryption key records registered in the system, ordered by creation date.  \n\nEach record stores key metadata only \u2014 the actual key material is managed by the HSM and never returned by this API.  Use `current_version` to track rotation history."
+          },
+          "response": []
+        },
+        {
+          "name": "Register a new encryption key record",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/keys",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "keys"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"string\",\n  \"algorithm\": \"AES-256-GCM\",\n  \"scope\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "`POST /keys` \u2014 Auth: Bearer {{access_token}}\n\nCreate a metadata record for a new encryption key.  \n\n**Fields:**\n- `title` \u2014 human-readable label (e.g. `Biometric Template Key 2025`).\n- `algorithm` \u2014 cipher algorithm (default `AES-256-GCM`).\n- `scope` \u2014 optional scope string (e.g. `biometrics`, `backups`).\n\nThe key is created at `current_version = 1`.  Call `:rotate` to increment the version when key material is rotated in the HSM."
+          },
+          "response": []
+        },
+        {
+          "name": "Get an encryption key record by UUID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/keys/:key_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "keys",
+                ":key_id"
+              ],
+              "variable": [
+                {
+                  "key": "key_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            },
+            "description": "`GET /keys/{key_id}` \u2014 Auth: Bearer {{access_token}}\n\nRetrieve the metadata record for a single encryption key by its UUID primary key.  Returns **404** if the key record does not exist.\n\n**Path params:** `key_id`"
+          },
+          "response": []
+        },
+        {
+          "name": "Update an encryption key's metadata",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/keys/:key_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "keys",
+                ":key_id"
+              ],
+              "variable": [
+                {
+                  "key": "key_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"string\",\n  \"scope\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "`PATCH /keys/{key_id}` \u2014 Auth: Bearer {{access_token}}\n\nPartially update the metadata of an encryption key record (PATCH semantics).  \n\nMutable fields: `title`, `scope`.  Omitted fields are left unchanged.  Returns **404** if the key does not exist.\n\n**Path params:** `key_id`"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete an encryption key record",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/keys/:key_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "keys",
+                ":key_id"
+              ],
+              "variable": [
+                {
+                  "key": "key_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            },
+            "description": "`DELETE /keys/{key_id}` \u2014 Auth: Bearer {{access_token}}\n\nPermanently remove an encryption key metadata record.  \n\n**Warning:** this does not rotate or destroy the underlying key material in the HSM \u2014 it only removes the tracking record.  An audit entry with action `RECORD_DELETED` is written before deletion.  Returns **204 No Content** on success.\n\n**Path params:** `key_id`"
+          },
+          "response": []
+        },
+        {
+          "name": "Rotate an encryption key \u2014 increment its version",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/keys/{key_id}:rotate",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "keys",
+                "{key_id}:rotate"
+              ]
+            },
+            "description": "`POST /keys/{key_id}:rotate` \u2014 Auth: Bearer {{access_token}}\n\nSignal that the underlying key material for this record has been rotated in the HSM.  \n\n**Effect:**\n- Increments `current_version` by 1.\n- Updates `updated_at` to the current UTC timestamp.\n- Writes an audit entry with action `KEY_ROTATED`.\n\nReturns **404** if the key record does not exist.\n\n**Path params:** `key_id`"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "ai",
+      "description": "AI/ML model health, FAISS index status, threshold tuning, and index rebuild.  `GET /ai/status` reports the active backend and FAISS size; `PUT /ai/thresholds` retunes match/review/dedup at runtime; `POST /ai/rebuild-index` reconstructs the 1:N index from the encrypted templates (repairing any drift).",
+      "item": [
+        {
+          "name": "AI model and FAISS index status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ai/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ai",
+                "status"
+              ]
+            },
+            "description": "`GET /ai/status` \u2014 Auth: Bearer {{access_token}}\n\nReturns the current status of the AI/ML subsystem:  \n\n- `model_loaded` \u2014 whether the ArcFace face embedding model is loaded in memory.\n- `faiss_index_size` \u2014 number of embeddings currently indexed in FAISS.\n- `face_match_threshold` \u2014 minimum cosine similarity to approve a verification.\n- `review_floor` \u2014 minimum confidence to flag for manual review instead of reject.\n- `dedup_threshold` \u2014 similarity above which two templates are considered duplicates.\n- `faiss_index_path` \u2014 path to the persisted FAISS index file on disk.\n\nDoes not require authentication \u2014 safe to call from health-check scripts."
+          },
+          "response": []
+        },
+        {
+          "name": "Current AI decision thresholds",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ai/thresholds",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ai",
+                "thresholds"
+              ]
+            },
+            "description": "`GET /ai/thresholds` \u2014 Auth: Bearer {{access_token}}\n\nReturns the three thresholds that drive the biometric decision pipeline:  \n\n- `face_match_threshold` \u2014 cosine similarity required for an `approved` decision.\n- `review_floor` \u2014 lower bound for `manual_review` (below \u2192 `rejected`).\n- `dedup_threshold` \u2014 similarity at which two enrolled templates are flagged as duplicates.\n\nAll thresholds are sourced from application settings and can be overridden via environment variables."
+          },
+          "response": []
+        },
+        {
+          "name": "Update AI decision thresholds at runtime",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/ai/thresholds",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ai",
+                "thresholds"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"face_match_threshold\": 0.0,\n  \"review_floor\": 0.0,\n  \"dedup_threshold\": 0.0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "`PUT /ai/thresholds` \u2014 Auth: Bearer {{access_token}}\n\nOverride one or more biometric decision thresholds for the current server process.  \n\n**Fields (all optional):**\n- `face_match_threshold` \u2014 minimum cosine similarity for an `approved` decision (0.0\u20131.0).\n- `review_floor` \u2014 lower bound for `manual_review`; scores below this are `rejected` (0.0\u20131.0).\n- `dedup_threshold` \u2014 similarity at which two templates are flagged as duplicates (0.0\u20131.0).\n\n**Warning:** changes are applied to the in-process `settings` object and take effect immediately but are **not persisted** \u2014 they reset to environment-variable defaults on server restart.  To persist thresholds, update the `.env` file or environment variables.  \n\nAn audit entry is written recording old and new values."
+          },
+          "response": []
+        },
+        {
+          "name": "Rebuild FAISS index from stored templates",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ai/rebuild-index",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ai",
+                "rebuild-index"
+              ]
+            },
+            "description": "`POST /ai/rebuild-index` \u2014 Auth: Bearer {{access_token}}\n\nRebuilds the FAISS 1:N index from the AES-256-GCM encrypted embeddings stored in the database (original images are not needed \u2014 only the embeddings are required, and they are persisted).  \n\nEach template's `faiss_id` is reassigned to its new index position, repairing any drift between the in-memory index and the database \u2014 the usual cause of broken 1:N de-duplication after a restart.  Use `GET /ai/status` to inspect index size."
+          },
+          "response": []
+        },
+        {
+          "name": "Ping AI model and report health",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ai/healthcheck",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ai",
+                "healthcheck"
+              ]
+            },
+            "description": "`POST /ai/healthcheck` \u2014 Auth: Bearer {{access_token}}\n\nPerforms a lightweight health check of the AI/ML subsystem and writes an audit entry.  \n\nReturns:  \n- `status` \u2014 `ok` if the face model is loaded and FAISS index is accessible; `degraded` otherwise.\n- `model_loaded` \u2014 whether the ArcFace model is in memory.\n- `index_size` \u2014 number of vectors in the FAISS index.\n- `checked_at` \u2014 ISO 8601 UTC timestamp of when the check was performed."
+          },
+          "response": []
         }
       ]
     }

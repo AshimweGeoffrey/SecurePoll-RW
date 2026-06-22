@@ -10,3 +10,4 @@ import os
 os.environ.setdefault("DATABASE_URL", "postgresql://unit:test@localhost:5432/unit_noop")
 os.environ.setdefault("JWT_SECRET", "unit-test-only-secret-padding-32-chars-ok")
 os.environ.setdefault("TEMPLATE_AES_KEY", "aabbccdd" * 8)  # 64 hex chars = 32 bytes
+os.environ.setdefault("RATE_LIMIT_PER_MINUTE", "0")  # no throttling in tests

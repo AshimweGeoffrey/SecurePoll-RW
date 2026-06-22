@@ -1,4 +1,9 @@
 """Pytest configuration and shared fixtures."""
+import os
+# Disable per-IP rate limiting during tests — the TestClient shares one IP, so a
+# rapid suite would otherwise trip the limiter. Must be set before app import.
+os.environ.setdefault("RATE_LIMIT_PER_MINUTE", "0")
+
 import pytest
 from unittest.mock import patch, MagicMock
 from app.core.db import engine, SessionLocal

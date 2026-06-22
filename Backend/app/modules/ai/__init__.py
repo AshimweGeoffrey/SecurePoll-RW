@@ -10,7 +10,10 @@ from app.core.audit import write_audit
 from app.core.enums import AuditAction, ActorType
 from app.db.models.biometric import BiometricTemplate
 from app.db.models.people import AdminUser
-from app.modules.ai.service import get_model_status, get_thresholds, update_thresholds
+from app.modules.ai.service import (
+    get_model_status, get_thresholds, update_thresholds,
+    rebuild_faiss_index, index_consistency,
+)
 from app.schemas import ThresholdUpdate
 import ml.inference as inference
 
@@ -59,28 +62,28 @@ async def ai_thresholds(current_user: AdminUser = Depends(get_current_user)):
 
 @router.post(
     "/rebuild-index",
-    summary="Rebuild FAISS index (not supported)",
+    summary="Rebuild FAISS index from stored templates",
     description=(
-        "Intended to rebuild the FAISS embedding index from scratch by re-embedding all stored "
-        "biometric templates.  \n\n"
-        "**Not supported:** rebuilding requires the original face images, which are not stored "
-        "in the database (only AES-256-GCM encrypted embeddings are persisted).  \n\n"
-        "Use `GET /ai/status` to inspect the current index state."
+        "Rebuilds the FAISS 1:N index from the AES-256-GCM encrypted embeddings stored in the "
+        "database (original images are not needed — only the embeddings are required, and they "
+        "are persisted).  \n\n"
+        "Each template's `faiss_id` is reassigned to its new index position, repairing any drift "
+        "between the in-memory index and the database — the usual cause of broken 1:N "
+        "de-duplication after a restart.  Use `GET /ai/status` to inspect index size."
     ),
-    response_description="Status message explaining why the operation is not supported.",
-    responses={
-        401: {"description": "Not authenticated."},
-    },
+    response_description="Count of templates indexed and the resulting index size.",
+    responses={401: {"description": "Not authenticated."}},
 )
-async def rebuild_index(current_user: AdminUser = Depends(get_current_user)):
-    """Rebuild FAISS index — not supported without original face images."""
-    return {
-        "status": "not_supported",
-        "reason": (
-            "Rebuilding requires original face images which are not stored. "
-            "Use /ai/status to check current index."
-        ),
-    }
+# Sync `def` (not async) so FastAPI runs this CPU/DB-heavy rebuild in a worker
+# thread — it must not block the event loop while it re-indexes every template.
+def rebuild_index(db: Session = Depends(get_db),
+                  current_user: AdminUser = Depends(get_current_user)):
+    result = rebuild_faiss_index(db)
+    write_audit(db, action=AuditAction.RECORD_CREATED, actor_type=ActorType.user,
+                actor_id=str(current_user.id), service="AI",
+                detail=f"FAISS index rebuilt: {result['templates_indexed']} templates")
+    db.commit()
+    return result
 
 
 @router.post(

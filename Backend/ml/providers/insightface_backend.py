@@ -55,7 +55,3 @@ class InsightFaceBackend(InferenceBackend):
             if norm > 0:
                 emb = emb / norm
         return np.asarray(emb, dtype=np.float32)
-
-    def check_liveness(self, image_bytes: bytes) -> Tuple[str, float]:
-        # TODO(phase-2): replace with Silent-Face / MiniFASNet passive anti-spoof.
-        return ("live", 0.95)

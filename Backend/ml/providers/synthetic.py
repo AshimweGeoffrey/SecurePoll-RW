@@ -49,7 +49,3 @@ class SyntheticBackend(InferenceBackend):
         if norm == 0:
             raise ValueError("Degenerate embedding")
         return vec / norm
-
-    def check_liveness(self, image_bytes: bytes) -> Tuple[str, float]:
-        # Synthetic backend assumes a live capture; it does no anti-spoof.
-        return ("live", 0.99)

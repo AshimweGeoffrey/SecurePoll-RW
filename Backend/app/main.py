@@ -5,6 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import logging
 
+from app.core.config import settings
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -17,6 +19,21 @@ async def lifespan(app: FastAPI):
         import ml.inference as inference
         inference.load_models()
         logger.info("AI models loaded")
+        # Warn if the FAISS index is out of sync with the stored templates — this
+        # silently breaks 1:N dedup. Operator can repair via POST /ai/rebuild-index.
+        try:
+            from app.core.db import SessionLocal
+            from app.modules.ai.service import index_consistency, rebuild_faiss_index
+            with SessionLocal() as _db:
+                cons = index_consistency(_db)
+                if not cons["in_sync"]:
+                    logger.warning(
+                        f"FAISS index out of sync ({cons['index_size']} vectors vs "
+                        f"{cons['template_count']} templates) — rebuilding from stored templates...")
+                    res = rebuild_faiss_index(_db)
+                    logger.info(f"FAISS index rebuilt: {res['templates_indexed']} templates indexed")
+        except Exception as ce:
+            logger.warning(f"FAISS auto-rebuild skipped ({ce}); POST /ai/rebuild-index to repair.")
     except Exception as e:
         logger.error(f"AI model load failed: {e} — continuing without AI (enroll/verify will fail)")
 
@@ -45,13 +62,19 @@ Final Year Project demonstrating election-grade security engineering.
 
 | Feature | Detail |
 |---------|--------|
-| **Face recognition** | ArcFace 512-d cosine-similarity embeddings (InsightFace) |
+| **Face recognition** | Pluggable ArcFace 512-d **L2-normalized** embeddings (InsightFace); `AI_BACKEND` selects `insightface` or a deterministic `synthetic` backend |
+| **Liveness / anti-spoof** | Pluggable passive check (`LIVENESS_BACKEND=passive`) — a detected spoof cannot auto-approve |
 | **Template encryption** | AES-256-GCM with a random 96-bit nonce per template |
-| **1:N deduplication** | FAISS flat-L2 index searched at enrolment time |
-| **Audit log integrity** | SHA-256 hash-chain — every entry hashes the previous entry's hash |
+| **1:N deduplication** | FAISS ID-mapped inner-product (cosine) index; stable ids, removable, rebuildable from the encrypted templates (`POST /ai/rebuild-index`) |
+| **Audit log integrity** | SHA-256 hash-chain with per-entry flush + `pg_advisory_xact_lock` serialization (fork-proof) |
 | **Double-vote prevention** | PostgreSQL `SELECT … FOR UPDATE` row-lock on vote cast |
 | **MFA** | TOTP (RFC 6238) on admin accounts; partial JWT while pending |
-| **RBAC** | Role table with fine-grained permission strings; district-scope filtering |
+| **Rate limiting** | Per-IP request throttling (`RATE_LIMIT_PER_MINUTE`) |
+| **RBAC** | Role/permission model with a `require_role` authorization dependency |
+
+Verification thresholds are calibrated on the LFW cross-session benchmark
+(match `0.30` / review `0.20` / dedup `0.40`; ROC AUC ≈ 0.998) and are runtime-tunable
+via `PUT /ai/thresholds`.
 
 ---
 
@@ -94,9 +117,10 @@ _TAGS_METADATA = [
     {
         "name": "ai",
         "description": (
-            "AI/ML model health and FAISS index status.  "
-            "Use `GET /ai/status` to verify that ArcFace is loaded and check the "
-            "current size of the FAISS deduplication index."
+            "AI/ML model health, FAISS index status, threshold tuning, and index rebuild.  "
+            "`GET /ai/status` reports the active backend and FAISS size; `PUT /ai/thresholds` "
+            "retunes match/review/dedup at runtime; `POST /ai/rebuild-index` reconstructs the "
+            "1:N index from the encrypted templates (repairing any drift)."
         ),
     },
     {
@@ -118,9 +142,10 @@ _TAGS_METADATA = [
     {
         "name": "biometrics",
         "description": (
-            "Face biometric enrolment using ArcFace 512-d embeddings with AES-256-GCM "
-            "encryption at rest.  A 1:N FAISS deduplication scan runs automatically at "
-            "enrolment and creates fraud cases when similarity exceeds the configured threshold."
+            "Face biometric enrolment using ArcFace 512-d L2-normalized embeddings with "
+            "AES-256-GCM encryption at rest and a passive liveness check.  A 1:N FAISS "
+            "deduplication scan runs automatically at enrolment and creates fraud cases when "
+            "cosine similarity exceeds the configured dedup threshold."
         ),
     },
     {
@@ -159,7 +184,7 @@ _TAGS_METADATA = [
 app = FastAPI(
     title="SecurePoll RW",
     description=_DESCRIPTION,
-    version="1.0.0",
+    version="1.1.0",
     contact={
         "name": "Geoffrey Ashimwe",
         "email": "ashimwegeoffrey@gmail.com",
@@ -172,13 +197,35 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+_cors_origins = settings.cors_origin_list
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_cors_origins,
+    # Credentialed requests cannot use a wildcard origin per the CORS spec.
+    allow_credentials=_cors_origins != ["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Global per-IP rate limiting (flood / brute-force protection). Disabled when
+# RATE_LIMIT_PER_MINUTE <= 0 (tests set 0 so rapid suites aren't throttled).
+if settings.rate_limit_per_minute > 0:
+    try:
+        from slowapi import Limiter, _rate_limit_exceeded_handler
+        from slowapi.util import get_remote_address
+        from slowapi.errors import RateLimitExceeded
+        from slowapi.middleware import SlowAPIMiddleware
+
+        limiter = Limiter(key_func=get_remote_address,
+                          default_limits=[f"{settings.rate_limit_per_minute}/minute"])
+        app.state.limiter = limiter
+        app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+        app.add_middleware(SlowAPIMiddleware)
+        logger.info(f"Rate limiting enabled: {settings.rate_limit_per_minute}/min per IP")
+    except Exception as _e:
+        logger.warning(f"slowapi unavailable ({_e}); rate limiting disabled")
+else:
+    logger.info("Rate limiting disabled (RATE_LIMIT_PER_MINUTE<=0)")
 
 
 @app.get(

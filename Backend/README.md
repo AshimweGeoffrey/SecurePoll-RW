@@ -74,10 +74,15 @@ ACCESS_TOKEN_MINUTES=30
 # Generate: python3 -c "import os; print(os.urandom(32).hex())"
 TEMPLATE_AES_KEY=0000000000000000000000000000000000000000000000000000000000000000
 
-# ArcFace verification thresholds
-FACE_MATCH_THRESHOLD=0.80    # approve if confidence >= this
-REVIEW_FLOOR=0.60            # manual review if confidence >= this
-DEDUP_THRESHOLD=0.85         # flag duplicate if cosine similarity >= this
+# ArcFace verification thresholds — calibrated on the LFW cross-session
+# benchmark (genuine cosine ~0.63, impostor max ~0.20). See scripts/benchmark_lfw.py.
+FACE_MATCH_THRESHOLD=0.30    # approve if confidence >= this
+REVIEW_FLOOR=0.20            # manual review if confidence >= this
+DEDUP_THRESHOLD=0.40         # flag duplicate if cosine similarity >= this
+
+# Inference backend: "insightface" (real ArcFace) | "synthetic" (deterministic,
+# no model download — for CI, demos, and offline testing).
+AI_BACKEND=insightface
 
 # FAISS index (relative to Backend/)
 FAISS_INDEX_PATH=ml/faiss/index.bin
@@ -187,8 +192,12 @@ GET  /officers/{id}/stats            Officer verification statistics
 
 # Biometrics
 POST /biometrics/enroll              Enrol face (ArcFace + 1:N dedup)
+PUT  /biometrics/enroll              Re-enrol (replace existing template)
 GET  /biometrics/templates           List all biometric templates
 GET  /biometrics/quality/{voter_id}  Template quality score
+GET  /biometrics/stats               Enrolment coverage stats
+POST /biometrics/dedup-scan/{voter_id}  Run 1:N dedup scan for a voter
+DELETE /biometrics/templates/{voter_id} Delete a template
 
 # Verification (public — no JWT required)
 POST /verifications                  1:1 face verification (election day)
@@ -218,9 +227,15 @@ GET  /analytics/demographics         Demographic breakdown (sex, district)
 GET  /analytics/verification         Verification performance metrics
 GET  /analytics/live                 Combined live dashboard (turnout + verification + anomalies)
 
+# AI / model ops
+GET  /ai/status                      Active backend, model + FAISS index health
+GET  /ai/thresholds                  Current match/review/dedup thresholds
+PUT  /ai/thresholds                  Update thresholds at runtime
+POST /ai/rebuild-index               Rebuild FAISS index from stored templates
+POST /ai/healthcheck                 Ping AI subsystem
+
 # System
 GET  /health                         Service health check
-GET  /ai/status                      AI model + FAISS index health
 GET  /keys                           Encryption key registry
 ```
 
@@ -242,7 +257,37 @@ make test-integration
 make coverage
 ```
 
-Test counts: **74 unit tests** + **215 integration tests** = **289 total**
+Test counts: **79 unit tests** + **215 integration tests** = **294 total**
+
+### Live validation & biometric benchmarks
+
+Beyond pytest, three scripts validate the running system and the face-recognition engine:
+
+```bash
+# Smoke-test every endpoint against a running server (~110 routes)
+python3 scripts/smoke_test.py
+
+# End-to-end biometric pipeline with real faces (enrol → verify → dedup → vote → audit)
+AI_BACKEND=insightface python3 scripts/validate_pipeline.py
+
+# Face-recognition accuracy on the LFW cross-session benchmark (ROC/AUC/EER)
+AI_BACKEND=insightface python3 scripts/benchmark_lfw.py 1000
+```
+
+Measured on the standard LFW protocol (1,000 pairs): **ROC AUC 0.998, EER 0.90%, 99.6% accuracy** — the basis for the calibrated thresholds above.
+
+### Inference backends
+
+The face-embedding/liveness step is pluggable via `AI_BACKEND`:
+
+| Backend | Use | Notes |
+|---------|-----|-------|
+| `insightface` | Production / real matching | ArcFace `buffalo_l`, 512-d, ~200 ms/face (CPU) |
+| `synthetic` | CI, demos, offline dev | Deterministic embeddings from image bytes — no model download |
+
+If 1:N dedup looks inactive after a restart, the FAISS index may be out of sync with the
+database (startup logs a warning). Repair it with `POST /ai/rebuild-index`, which rebuilds
+the index from the stored AES-encrypted embeddings.
 
 ---
 
@@ -319,10 +364,14 @@ docker run -p 8000:8000 --env-file .env securepoll-backend
 | `JWT_ALGORITHM` | No | `HS256` | JWT algorithm |
 | `ACCESS_TOKEN_MINUTES` | No | `30` | Token lifetime |
 | `TEMPLATE_AES_KEY` | Yes | — | 64 hex chars (32 bytes) for AES-256-GCM |
-| `FACE_MATCH_THRESHOLD` | No | `0.80` | Min confidence for `approved` result |
-| `REVIEW_FLOOR` | No | `0.60` | Min confidence for `manual_review` result |
-| `DEDUP_THRESHOLD` | No | `0.85` | Min similarity to flag as duplicate |
+| `FACE_MATCH_THRESHOLD` | No | `0.30` | Min confidence for `approved` result (calibrated on LFW) |
+| `REVIEW_FLOOR` | No | `0.20` | Min confidence for `manual_review` result |
+| `DEDUP_THRESHOLD` | No | `0.40` | Min similarity to flag as duplicate |
+| `AI_BACKEND` | No | `insightface` | Inference backend: `insightface` or `synthetic` |
+| `LIVENESS_BACKEND` | No | `passive` | Anti-spoof: `passive` (image-quality) or `none` |
 | `FAISS_INDEX_PATH` | No | `ml/faiss/index.bin` | Path to FAISS index file |
+| `CORS_ORIGINS` | No | `*` | Comma-separated allowed origins (restrict in prod) |
+| `RATE_LIMIT_PER_MINUTE` | No | `60` | Per-IP request limit; `0` disables |
 | `DEBUG` | No | `False` | Enable verbose logging |
 
 ---

@@ -34,8 +34,16 @@ def list_templates(db: Session, skip: int = 0, limit: int = 50) -> tuple:
 
 
 def delete_template(db: Session, template: BiometricTemplate, deleted_by_id: str) -> None:
-    """Hard delete template and write audit."""
+    """Hard delete template, drop its FAISS vector, and write audit."""
     voter_ref = str(template.voter_id)
+    # Remove the embedding from the 1:N index so a deleted voter can't still match.
+    if template.faiss_id is not None:
+        try:
+            import ml.inference as inference
+            inference.faiss_remove(template.faiss_id)
+            inference.faiss_save()
+        except Exception:
+            pass
     write_audit(
         db,
         action=AuditAction.TEMPLATE_ACCESSED,

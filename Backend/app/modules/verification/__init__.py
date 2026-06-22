@@ -35,6 +35,12 @@ def _build_decision(face_score: float, liveness_str: str) -> tuple:
     else:
         result = VerifyResult.rejected
 
+    # A failed/absent liveness check is disqualifying for auto-approval: a detected
+    # presentation attack must never be approved, regardless of how strong the face
+    # match is. Downgrade an otherwise-approved result to manual review.
+    if not liveness_pass and result == VerifyResult.approved:
+        result = VerifyResult.manual_review
+
     flags = []
     if not liveness_pass:
         flags.append("LIVENESS_FAILED")
@@ -44,7 +50,11 @@ def _build_decision(face_score: float, liveness_str: str) -> tuple:
     if result == VerifyResult.approved:
         explanation = f"Strong face match ({face_score:.2f}) with confirmed liveness."
     elif result == VerifyResult.manual_review:
-        explanation = f"Borderline face match ({face_score:.2f}). Manual review required."
+        if not liveness_pass:
+            explanation = (f"Liveness check failed ({liveness_str}) — manual review required "
+                           f"despite face match ({face_score:.2f}).")
+        else:
+            explanation = f"Borderline face match ({face_score:.2f}). Manual review required."
     else:
         explanation = f"Face match too low ({face_score:.2f}) or liveness failed."
 

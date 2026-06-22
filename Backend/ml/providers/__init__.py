@@ -13,6 +13,7 @@ FAISS indexing is backend-agnostic and lives in ``ml.inference``.
 """
 from ml.providers.base import InferenceBackend
 from ml.providers.synthetic import SyntheticBackend
+from ml.providers.liveness import get_liveness_provider, LivenessProvider
 
 EMBEDDING_DIM = 512
 

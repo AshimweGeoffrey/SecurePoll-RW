@@ -27,51 +27,10 @@ def get_verification(db: Session, attempt_id: uuid.UUID) -> Optional[Verificatio
     ).scalar_one_or_none()
 
 
-def build_decision(face_score: float, liveness_str: str,
-                   face_threshold: float, review_floor: float) -> tuple:
-    """
-    Return (VerifyResult, confidence, decision_json dict).
-
-    Liveness failure penalises confidence by -0.20.
-    """
-    liveness_pass = liveness_str == "live"
-    confidence = face_score if liveness_pass else max(0.0, face_score - 0.20)
-
-    if confidence >= face_threshold:
-        result = VerifyResult.approved
-    elif confidence >= review_floor:
-        result = VerifyResult.manual_review
-    else:
-        result = VerifyResult.rejected
-
-    flags = []
-    if not liveness_pass:
-        flags.append("LIVENESS_FAILED")
-    if face_score < review_floor:
-        flags.append("LOW_FACE_SCORE")
-
-    if result == VerifyResult.approved:
-        explanation = f"Strong face match ({face_score:.2f}) with confirmed liveness."
-    elif result == VerifyResult.manual_review:
-        explanation = f"Borderline face match ({face_score:.2f}). Manual review required."
-    else:
-        explanation = f"Face match too low ({face_score:.2f}) or liveness failed."
-
-    decision_json = {
-        "decision": result.value,
-        "confidence": round(confidence, 4),
-        "threshold": face_threshold,
-        "breakdown": {
-            "face_score": round(face_score, 4),
-            "fingerprint_score": None,
-            "liveness": liveness_str.upper(),
-            "fusion_score": round(confidence, 4),
-        },
-        "flags": flags,
-        "explanation": explanation,
-        "review_required": result == VerifyResult.manual_review,
-    }
-    return result, confidence, decision_json
+# NOTE: the verification decision (face_score + liveness -> result/confidence) lives
+# in app.modules.verification.__init__._build_decision, which is the single source of
+# truth used by POST /verifications. A duplicate implementation previously lived here
+# and was removed to avoid drift.
 
 
 def station_summary(db: Session, station_id: uuid.UUID) -> dict:

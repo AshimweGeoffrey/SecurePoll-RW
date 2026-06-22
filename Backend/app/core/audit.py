@@ -1,12 +1,18 @@
 """Audit logging with hash chaining."""
 import hashlib
 import json
+import logging
 from datetime import datetime, timezone
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 from app.db.models.audit import AuditEntry
 from app.core.enums import AuditAction, ActorType
 from typing import Optional, Any
+
+logger = logging.getLogger(__name__)
+
+# Arbitrary constant key identifying the audit-chain advisory lock.
+_AUDIT_LOCK_KEY = 727274
 
 
 def _hash(payload: dict, prev_hash: str) -> str:
@@ -38,11 +44,22 @@ def write_audit(
     This MUST be called within the same transaction as the action it logs.
     If the transaction rolls back, the audit entry rolls back too.
     """
-    # Get the last entry to compute prev_hash
+    # Serialize audit writers for the duration of this transaction so two CONCURRENT
+    # requests can't both read the same chain head and fork it. (PostgreSQL advisory
+    # lock; auto-released on commit/rollback. Best-effort on other backends.)
+    try:
+        db.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": _AUDIT_LOCK_KEY})
+    except Exception as e:  # pragma: no cover - non-PostgreSQL fallback
+        logger.debug(f"advisory lock unavailable: {e}")
+
+    # Get the last entry to compute prev_hash. The session is autoflush=False, so
+    # any audit entry added earlier in THIS transaction is flushed below before the
+    # next call — otherwise multiple audit writes in one request would all chain to
+    # the same committed entry and fork the hash chain.
     last = db.execute(
         select(AuditEntry).order_by(AuditEntry.sequence.desc()).limit(1)
     ).scalar_one_or_none()
-    
+
     prev_hash = last.entry_hash if last else "begin"
     occurred = datetime.now(timezone.utc)
     
@@ -77,6 +94,10 @@ def write_audit(
     )
     
     db.add(entry)
+    # Flush so the DB assigns `sequence` and the row is visible to the next
+    # write_audit in this same transaction — keeping the hash chain unbroken when
+    # one request logs several entries (e.g. enroll + 1:N dedup hits).
+    db.flush()
     return entry
 
 

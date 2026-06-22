@@ -5,7 +5,8 @@ from datetime import datetime, date, time
 from uuid import UUID
 from app.core.enums import (VoterStatus, Sex, Modality, VerifyResult, Liveness,
                             StationStatus, FraudType, RiskLevel, CaseResolution,
-                            DuplicateStatus, AuditAction, ActorType, UserStatus, Province)
+                            DuplicateStatus, AuditAction, ActorType, UserStatus, Province,
+                            AnomalySeverity)
 from typing import Optional, Any
 
 
@@ -418,9 +419,9 @@ class EncryptionKeyUpdate(BaseModel):
 # ============================================================================
 
 class FraudCaseCreate(BaseModel):
-    type: Any  # FraudType value string
+    type: FraudType
     title: str
-    risk_level: Any  # RiskLevel value string
+    risk_level: RiskLevel
     voter_id: Optional[UUID] = None
     registration_ref: Optional[str] = None
     polling_station_id: Optional[UUID] = None
@@ -430,7 +431,7 @@ class FraudCaseCreate(BaseModel):
 
 
 class AnomalyCreate(BaseModel):
-    severity: Any  # AnomalySeverity value string
+    severity: AnomalySeverity
     title: str
     description: Optional[str] = None
     signal_name: Optional[str] = None
