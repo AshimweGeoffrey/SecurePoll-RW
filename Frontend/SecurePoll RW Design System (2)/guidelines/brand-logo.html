@@ -1,0 +1,39 @@
+<!-- @dsCard group="Brand" viewport="700x230" name="Logo & Monogram" subtitle="Shield + verification check · light and dark lockups" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-sans); display: grid; grid-template-columns: 1fr 1fr; }
+  .pane { padding: 26px; display: flex; flex-direction: column; gap: 18px; }
+  .light { background: var(--bg-surface); }
+  .dark { background: var(--slate-950); }
+  .lockup { display: flex; align-items: center; gap: 14px; }
+  .lockup img.wm { height: 34px; }
+  .marks { display:flex; align-items:center; gap: 14px; }
+  .marks img { height: 40px; }
+  .clear { width:40px;height:40px;border:1px dashed var(--border-default); border-radius: 6px; }
+  .cap { font-size: 11px; letter-spacing: var(--ls-caps); text-transform: uppercase; font-weight:700; }
+  .light .cap { color: var(--text-muted); }
+  .dark .cap { color: var(--slate-400); }
+</style>
+</head>
+<body>
+  <div class="pane light">
+    <div class="cap">On light</div>
+    <img class="wm" src="../assets/logo-wordmark.svg" alt="SecurePoll RW" style="height:38px">
+    <div class="marks">
+      <img src="../assets/mark.svg" alt="mark">
+      <div class="clear" title="min clear space = mark height"></div>
+    </div>
+  </div>
+  <div class="pane dark">
+    <div class="cap">On dark / kiosk</div>
+    <img class="wm" src="../assets/logo-wordmark-dark.svg" alt="SecurePoll RW" style="height:38px">
+    <div class="marks">
+      <img src="../assets/mark.svg" alt="mark">
+    </div>
+  </div>
+</body>
+</html>

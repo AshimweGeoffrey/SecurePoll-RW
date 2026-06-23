@@ -1,0 +1,84 @@
+<!-- @dsCard group="Components" viewport="700x460" name="Core — Button · Badge · Card" subtitle="Primary action, status labels, surface container" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body { background: var(--bg-canvas); margin: 0; padding: 24px; font-family: var(--font-sans); }
+  .sect { margin-bottom: 22px; }
+  .lbl { font-size: 11px; font-weight: 700; letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script type="text/babel">
+  const { Button, Badge, Card } = window.SecurePollRWDesignSystem_92875f;
+  const Ic = (n) => <i data-lucide={n}></i>;
+  function Demo() {
+    return (
+      <div>
+        <div className="sect">
+          <div className="lbl">Button — variants &amp; sizes</div>
+          <div className="row" style={{marginBottom:'10px'}}>
+            <Button variant="primary" iconLeft={Ic('check')}>Grant ballot</Button>
+            <Button variant="secondary">Cancel</Button>
+            <Button variant="ghost" iconLeft={Ic('search')}>Search</Button>
+            <Button variant="danger" iconLeft={Ic('ban')}>Block voter</Button>
+          </div>
+          <div className="row">
+            <Button size="sm">Small</Button>
+            <Button size="md">Medium</Button>
+            <Button size="lg">Large</Button>
+            <Button size="xl">Kiosk XL</Button>
+            <Button loading>Verifying</Button>
+            <Button disabled>Disabled</Button>
+          </div>
+        </div>
+
+        <div className="sect">
+          <div className="lbl">Badge — tones &amp; fills</div>
+          <div className="row" style={{marginBottom:'8px'}}>
+            <Badge tone="green" dot>Approved</Badge>
+            <Badge tone="amber" dot>Manual review</Badge>
+            <Badge tone="red" dot>Rejected</Badge>
+            <Badge tone="blue" dot>Synced</Badge>
+            <Badge tone="neutral">Constituency 14</Badge>
+          </div>
+          <div className="row">
+            <Badge tone="green" variant="solid">VOTED</Badge>
+            <Badge tone="amber" variant="solid">PENDING</Badge>
+            <Badge tone="red" variant="outline">BLOCKED</Badge>
+            <Badge tone="blue" variant="outline">OBSERVER</Badge>
+          </div>
+        </div>
+
+        <div className="sect" style={{marginBottom:0}}>
+          <div className="lbl">Card — header, accent, trailing slot</div>
+          <div className="grid">
+            <Card title="Polling Station 014" subtitle="Nyarugenge · Kigali" accent="green"
+                  headerEnd={<Badge tone="green" dot>Online</Badge>}>
+              <div style={{fontFamily:'var(--font-mono)',fontSize:'13px',color:'var(--text-default)'}}>turnout = 62.4%</div>
+            </Card>
+            <Card title="Duplicate flagged" subtitle="Registration #20451" accent="amber" interactive
+                  headerEnd={<Badge tone="amber">1:N</Badge>}>
+              <div style={{fontSize:'13px',color:'var(--text-muted)'}}>Match candidate found — suspended for review.</div>
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  ReactDOM.createRoot(document.getElementById('root')).render(<Demo/>);
+  setTimeout(()=>window.lucide && window.lucide.createIcons(), 60);
+</script>
+</body>
+</html>

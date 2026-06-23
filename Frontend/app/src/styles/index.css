@@ -1,0 +1,97 @@
+/* SecurePoll RW — global stylesheet.
+   Design-system tokens (copied verbatim from the design system) + app-level
+   utility classes shared across all four product surfaces. */
+
+@import "./tokens/fonts.css";
+@import "./tokens/colors.css";
+@import "./tokens/typography.css";
+@import "./tokens/spacing.css";
+@import "./tokens/elevation.css";
+@import "./tokens/motion.css";
+@import "./tokens/base.css";
+@import "./loader.css";
+
+#root { min-height: 100vh; }
+
+/* ---- layout helpers ---- */
+.sp-stack { display: flex; flex-direction: column; }
+.sp-row { display: flex; align-items: center; }
+.sp-row-between { display: flex; align-items: center; justify-content: space-between; }
+.sp-wrap { flex-wrap: wrap; }
+.sp-grow { flex: 1 1 auto; min-width: 0; }
+.sp-gap-1 { gap: var(--space-1); }
+.sp-gap-2 { gap: var(--space-2); }
+.sp-gap-3 { gap: var(--space-3); }
+.sp-gap-4 { gap: var(--space-4); }
+.sp-gap-5 { gap: var(--space-5); }
+.sp-gap-6 { gap: var(--space-6); }
+
+.sp-grid { display: grid; gap: var(--space-4); }
+.sp-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.sp-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.sp-grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1024px) { .sp-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .sp-grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 680px) { .sp-grid-2, .sp-grid-3, .sp-grid-4 { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---- text helpers ---- */
+.t-mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: var(--ls-snug); }
+.t-muted { color: var(--text-muted); }
+.t-strong { color: var(--text-strong); }
+.t-sm { font-size: var(--text-sm); }
+.t-xs { font-size: var(--text-xs); }
+.t-eyebrow { font-family: var(--font-sans); font-size: var(--text-2xs); font-weight: var(--fw-bold); letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--text-muted); }
+.t-num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: var(--fw-semibold); color: var(--text-strong); }
+.t-right { text-align: right; }
+.t-nowrap { white-space: nowrap; }
+
+/* ---- page scaffolding ---- */
+.sp-page-title { font-family: var(--font-display); font-size: var(--text-3xl); color: var(--text-strong); }
+.sp-section-title { font-family: var(--font-display); font-size: var(--text-xl); color: var(--text-strong); }
+
+/* ---- data table ---- */
+.sp-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+.sp-table th {
+  text-align: left; font-size: var(--text-2xs); font-weight: var(--fw-bold);
+  letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--text-muted);
+  padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border-default);
+  white-space: nowrap;
+}
+.sp-table td { padding: var(--space-3); border-bottom: 1px solid var(--border-subtle); color: var(--text-default); vertical-align: middle; }
+.sp-table tbody tr { transition: background-color var(--dur-fast) var(--ease-standard); }
+.sp-table tbody tr:hover { background: var(--bg-subtle); }
+.sp-table tbody tr.sp-row-click { cursor: pointer; }
+
+/* ---- key/value list ---- */
+.sp-kv { display: grid; grid-template-columns: max-content 1fr; gap: var(--space-2) var(--space-5); align-items: baseline; }
+.sp-kv dt { font-size: var(--text-xs); color: var(--text-muted); }
+.sp-kv dd { margin: 0; color: var(--text-strong); font-size: var(--text-sm); }
+
+/* ---- misc ---- */
+.sp-divider { height: 1px; background: var(--border-subtle); border: 0; margin: var(--space-4) 0; }
+.sp-spinner { width: 1em; height: 1em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: sp-spin .7s linear infinite; display: inline-block; }
+@keyframes sp-spin { to { transform: rotate(360deg); } }
+.sp-skel { background: linear-gradient(90deg, var(--bg-subtle) 25%, var(--bg-inset) 37%, var(--bg-subtle) 63%); background-size: 400% 100%; animation: sp-shimmer 1.4s ease infinite; border-radius: var(--radius-sm); }
+@keyframes sp-shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+
+.sp-empty { text-align: center; color: var(--text-muted); padding: var(--space-12) var(--space-4); }
+.sp-toast-wrap { position: fixed; right: var(--space-5); bottom: var(--space-5); z-index: 1000; display: flex; flex-direction: column; gap: var(--space-2); max-width: 380px; }
+.sp-toast { background: var(--bg-surface); border: 1px solid var(--border-default); border-left: 3px solid var(--border-strong); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); padding: var(--space-3) var(--space-4); font-size: var(--text-sm); color: var(--text-strong); animation: sp-toast-in var(--dur-base) var(--ease-entrance); }
+.sp-toast--success { border-left-color: var(--status-approved); }
+.sp-toast--error { border-left-color: var(--status-rejected); }
+.sp-toast--info { border-left-color: var(--status-info); }
+@keyframes sp-toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* ---- modal ---- */
+.sp-modal-scrim { position: fixed; inset: 0; background: var(--bg-overlay); display: flex; align-items: center; justify-content: center; z-index: 900; padding: var(--space-5); animation: sp-fade var(--dur-fast) var(--ease-standard); }
+.sp-modal { background: var(--bg-surface); border-radius: var(--radius-xl); box-shadow: var(--shadow-xl); width: 100%; max-width: 560px; max-height: 90vh; overflow: auto; animation: sp-modal-in var(--dur-base) var(--ease-entrance); }
+.sp-modal--lg { max-width: 760px; }
+.sp-modal__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); padding: var(--space-5) var(--space-6); border-bottom: 1px solid var(--border-subtle); }
+.sp-modal__body { padding: var(--space-6); }
+.sp-modal__foot { padding: var(--space-4) var(--space-6); border-top: 1px solid var(--border-subtle); display: flex; justify-content: flex-end; gap: var(--space-3); }
+@keyframes sp-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sp-modal-in { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: none; } }
+
+.sp-iconbtn { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: var(--radius-md); border: 1px solid transparent; background: transparent; color: var(--text-muted); cursor: pointer; transition: var(--transition-control); }
+.sp-iconbtn:hover { background: var(--bg-subtle); color: var(--text-strong); }
+.sp-link { color: var(--text-link); cursor: pointer; background: none; border: 0; padding: 0; font: inherit; }
+.sp-link:hover { text-decoration: underline; }

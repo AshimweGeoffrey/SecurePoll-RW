@@ -1,0 +1,51 @@
+<!-- @dsCard group="Components" viewport="700x560" name="Status — Confidence Meter · Decision Panel" subtitle="The explainable-AI verification result, three states" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body { background: var(--bg-canvas); margin: 0; padding: 24px; font-family: var(--font-sans); }
+  .lbl { font-size: 11px; font-weight: 700; letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; }
+  .meters { display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 22px; margin-bottom: 26px; }
+  .panels { display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; align-items: start; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<script type="text/babel">
+  const { ConfidenceMeter, DecisionPanel } = window.SecurePollRWDesignSystem_92875f;
+  function Demo() {
+    return (
+      <div>
+        <div className="lbl">Confidence meter — three bands</div>
+        <div className="meters">
+          <ConfidenceMeter value={0.91} threshold={0.8} showScale />
+          <ConfidenceMeter value={0.72} threshold={0.8} showScale label="Fused score" />
+          <ConfidenceMeter value={0.41} threshold={0.8} showScale label="Fused score" />
+        </div>
+        <div className="lbl">Decision panel</div>
+        <div className="panels">
+          <DecisionPanel voterName="Jean Baptiste · RW-2026-0F3A" confidence={0.91}
+            breakdown={{ "Face match": 0.94, "Fingerprint": 0.87, "Liveness": "LIVE" }}
+            explanation="Strong face match with high liveness. Fingerprint confirms identity." />
+          <DecisionPanel voterName="Aline Uwase · RW-2026-7C12" confidence={0.72} reviewRequired
+            breakdown={{ "Face match": 0.74, "Fingerprint": 0.69, "Liveness": "LIVE" }}
+            explanation="Moderate match. Lighting reduced face confidence — officer review advised." />
+          <DecisionPanel voterName="Unknown · scan #4471" confidence={0.41}
+            breakdown={{ "Face match": 0.38, "Fingerprint": 0.45, "Liveness": "LIVE" }}
+            explanation="Low similarity to the stored template. No reliable identity match."
+            flags={["Possible impersonation"]} />
+        </div>
+      </div>
+    );
+  }
+  ReactDOM.createRoot(document.getElementById('root')).render(<Demo/>);
+</script>
+</body>
+</html>

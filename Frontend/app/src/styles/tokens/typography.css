@@ -1,0 +1,78 @@
+/* ============================================================
+   SecurePoll RW — Typography
+   Hanken Grotesk (UI/body) · Zilla Slab (display/official) · JetBrains Mono (data)
+   Fonts loaded via tokens/fonts.css
+   ============================================================ */
+
+:root {
+  /* ---- Families ---- */
+  --font-sans:    "Hanken Grotesk", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Zilla Slab", Georgia, "Times New Roman", serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* ---- Type scale (rem, 16px base) ---- */
+  --text-3xs: 0.625rem;  /* 10 — micro labels, legal */
+  --text-2xs: 0.6875rem; /* 11 — chip / overline */
+  --text-xs:  0.75rem;   /* 12 — meta, table caption */
+  --text-sm:  0.8125rem; /* 13 — dense UI, secondary */
+  --text-md:  0.9375rem; /* 15 — body default */
+  --text-lg:  1.0625rem; /* 17 — emphasized body */
+  --text-xl:  1.25rem;   /* 20 — card title */
+  --text-2xl: 1.5rem;    /* 24 — section title */
+  --text-3xl: 1.9375rem; /* 31 — page title */
+  --text-4xl: 2.5rem;    /* 40 — display */
+  --text-5xl: 3.25rem;   /* 52 — hero */
+  --text-6xl: 4.25rem;   /* 68 — diagram / number hero */
+
+  /* ---- Weights ---- */
+  --fw-regular:  400; /* @kind other */
+  --fw-medium:   500; /* @kind other */
+  --fw-semibold: 600; /* @kind other */
+  --fw-bold:     700; /* @kind other */
+  --fw-extra:    800; /* @kind other */
+
+  /* ---- Line heights ---- */
+  --lh-tight:   1.08; /* @kind other */
+  --lh-snug:    1.25; /* @kind other */
+  --lh-normal:  1.5; /* @kind other */
+  --lh-relaxed: 1.65; /* @kind other */
+
+  /* ---- Letter spacing ---- */
+  --ls-tight:   -0.02em;
+  --ls-snug:    -0.01em;
+  --ls-normal:  0em;
+  --ls-wide:    0.04em;
+  --ls-caps:    0.08em;   /* overlines / eyebrows */
+
+  /* ---- Semantic roles ---- */
+  --role-eyebrow-size: var(--text-2xs);
+  --role-eyebrow-weight: var(--fw-bold);
+  --role-eyebrow-spacing: var(--ls-caps);
+
+  --role-body-size: var(--text-md);
+  --role-body-line: var(--lh-relaxed);
+
+  --role-data-family: var(--font-mono);
+}
+
+/* Utility specimens used by cards & kits */
+.t-eyebrow {
+  font-family: var(--font-sans);
+  font-size: var(--role-eyebrow-size);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--ls-caps);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.t-display {
+  font-family: var(--font-display);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--ls-tight);
+  color: var(--text-strong);
+}
+.t-data {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--ls-snug);
+}

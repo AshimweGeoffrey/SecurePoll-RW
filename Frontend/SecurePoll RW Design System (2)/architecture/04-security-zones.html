@@ -1,0 +1,119 @@
+<!-- @dsCard group="Architecture" viewport="1340x900" name="Security Zones & Deployment" subtitle="DMZ · internal network · isolated biometric zone · polling edge" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SecurePoll RW — Deployment & Security Zones</title>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="diagram.css">
+<style>
+  html,body { margin:0; }
+  .canvas { width: 1340px; margin: 0 auto; }
+
+  .dc { border:1.5px solid var(--border-default); border-radius:var(--radius-2xl); padding:30px 24px 24px; position:relative; background:var(--bg-surface); box-shadow:var(--shadow-sm); }
+  .dc-label { position:absolute; top:-12px; left:24px; background:var(--bg-canvas); padding:0 12px; font-family:var(--font-display); font-size:15px; font-weight:600; color:var(--text-strong); }
+  .zones { display:grid; grid-template-columns: 0.95fr 1.35fr 0.95fr; gap:18px; }
+  .zone { border:1px dashed var(--border-strong); border-radius:var(--radius-xl); padding:16px; background:var(--bg-canvas); }
+  .zone--secure { border:1.5px solid #2f6fdb; background:var(--band-secure); }
+  .zone-h { display:flex; align-items:center; gap:9px; margin-bottom:14px; }
+  .zone-h i { width:17px;height:17px; }
+  .zone-h .zt { font-size:12px; font-weight:700; letter-spacing:var(--ls-caps); text-transform:uppercase; }
+  .zone .zt { color:var(--text-strong); }
+  .zone--secure .zt { color:#cfe0fb; }
+  .zone-h .sub { font-size:10.5px; color:var(--text-muted); margin-left:auto; }
+  .zone--secure .sub { color:#7fa3d6; }
+
+  .znode { display:flex; align-items:center; gap:10px; background:var(--bg-surface); border:1px solid var(--border-default); border-radius:var(--radius-md); padding:9px 12px; box-shadow:var(--shadow-xs); margin-bottom:8px; }
+  .znode:last-child { margin-bottom:0; }
+  .znode i { width:15px;height:15px;color:var(--primary-text); flex-shrink:0; }
+  .znode .nm { font-size:12.5px; font-weight:600; color:var(--text-strong); }
+  .znode .dt { font-size:10.5px; color:var(--text-muted); }
+  .znode.flow-in { border-left:3px solid var(--primary); }
+  .zone--secure .znode { background:#11243f; border-color:#234a82; }
+  .zone--secure .znode i { color:#7fb0ff; }
+  .zone--secure .znode .nm { color:#eaf2ff; }
+  .zone--secure .zone .dt, .zone--secure .znode .dt { color:#9bb6e0; }
+
+  .chain { display:flex; align-items:center; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+  .chain .lk { font-family:var(--font-mono); font-size:11px; font-weight:600; color:var(--text-strong); background:var(--bg-inset); border:1px solid var(--border-default); border-radius:var(--radius-sm); padding:4px 9px; }
+  .chain .gt { color:var(--text-subtle); }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+
+  .edge { margin-top:0; }
+  .edge .znode { margin-bottom:0; }
+</style>
+</head>
+<body>
+<div class="arch">
+  <div class="canvas">
+    <div class="arch-head">
+      <div class="ttl">
+        <img class="mark" src="../assets/mark.svg" alt="">
+        <div>
+          <div class="eyebrow">SecurePoll RW · Infrastructure</div>
+          <h1>Security Zones &amp; Deployment</h1>
+        </div>
+      </div>
+      <div class="meta"><b>Defense in depth</b><br>WAF · mTLS · network isolation<br>Rwanda Data Protection Law 058/2021</div>
+    </div>
+
+    <div class="chain">
+      <span class="lk">Internet</span><span class="gt">→</span>
+      <span class="lk">WAF</span><span class="gt">→</span>
+      <span class="lk">Load Balancer</span><span class="gt">→</span>
+      <span class="lk">API Gateway</span><span class="gt">→</span>
+      <span class="lk" style="color:var(--text-muted)">internal network · no direct DB access</span>
+    </div>
+
+    <div class="dc">
+      <span class="dc-label">NEC Data Center / Cloud</span>
+      <div class="zones">
+        <div class="zone">
+          <div class="zone-h"><i data-lucide="shield" style="color:var(--status-review-text)"></i><span class="zt">Public DMZ</span><span class="sub">internet-facing</span></div>
+          <div class="znode flow-in"><i data-lucide="shield-ban"></i><div><div class="nm">WAF</div><div class="dt">L7 filtering, OWASP rules</div></div></div>
+          <div class="znode"><i data-lucide="scale"></i><div><div class="nm">Load Balancer</div><div class="dt">TLS termination</div></div></div>
+          <div class="znode"><i data-lucide="route"></i><div><div class="nm">API Gateway</div><div class="dt">JWT · rate limit · mTLS</div></div></div>
+          <div class="znode"><i data-lucide="share-2"></i><div><div class="nm">Public API Svc</div><div class="dt">aggregates only</div></div></div>
+        </div>
+
+        <div class="zone">
+          <div class="zone-h"><i data-lucide="network" style="color:var(--primary-text)"></i><span class="zt">Internal Network</span><span class="sub">no inbound from internet</span></div>
+          <div class="grid2">
+            <div class="znode"><i data-lucide="boxes"></i><div><div class="nm">Microservices</div><div class="dt">Auth · Registry · Verify · Ops…</div></div></div>
+            <div class="znode"><i data-lucide="database"></i><div><div class="nm">Primary DBs</div><div class="dt">Voter · Audit · Analytics</div></div></div>
+            <div class="znode"><i data-lucide="zap"></i><div><div class="nm">Redis</div><div class="dt">cache · counters</div></div></div>
+            <div class="znode"><i data-lucide="radio-tower"></i><div><div class="nm">RabbitMQ</div><div class="dt">event bus</div></div></div>
+            <div class="znode"><i data-lucide="hard-drive"></i><div><div class="nm">Object Storage</div><div class="dt">MinIO · auto-purge</div></div></div>
+            <div class="znode"><i data-lucide="gauge"></i><div><div class="nm">Monitoring</div><div class="dt">Prometheus · Grafana</div></div></div>
+          </div>
+        </div>
+
+        <div class="zone zone--secure">
+          <div class="zone-h"><i data-lucide="lock" style="color:#7fb0ff"></i><span class="zt">Isolated Biometric Zone</span><span class="sub">separate subnet</span></div>
+          <div class="znode"><i data-lucide="fingerprint"></i><div><div class="nm">Biometric DB</div><div class="dt">AES-256 · templates only</div></div></div>
+          <div class="znode"><i data-lucide="cpu"></i><div><div class="nm">AI / ML Service</div><div class="dt">only service with access</div></div></div>
+          <div class="znode"><i data-lucide="key-square"></i><div><div class="nm">HSM</div><div class="dt">key mgmt · 6-mo rotation</div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow"><div class="stem"></div><div class="proto"><i data-lucide="lock"></i> HTTPS / mTLS · only registered terminals accepted</div><div class="arrow"></div></div>
+
+    <div class="dc" style="padding-top:30px">
+      <span class="dc-label">Polling Stations — thousands nationwide</span>
+      <div class="node-grid cols-5" style="grid-template-columns:repeat(5,1fr);gap:12px">
+        <div class="znode edge"><i data-lucide="tablet-smartphone"></i><div><div class="nm">Android tablet</div><div class="dt">React Native · kiosk</div></div></div>
+        <div class="znode edge"><i data-lucide="fingerprint"></i><div><div class="nm">USB reader</div><div class="dt">fingerprint</div></div></div>
+        <div class="znode edge"><i data-lucide="camera"></i><div><div class="nm">Camera</div><div class="dt">face capture</div></div></div>
+        <div class="znode edge"><i data-lucide="signal"></i><div><div class="nm">4G + satellite</div><div class="dt">critical-station backup</div></div></div>
+        <div class="znode edge"><i data-lucide="database"></i><div><div class="nm">Local SQLite</div><div class="dt">encrypted · offline</div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script>function draw(){ if(window.lucide) lucide.createIcons(); } draw(); window.addEventListener('load', draw);</script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+<!-- @dsCard group="Colors" viewport="700x210" name="Verification Status" subtitle="APPROVED · REJECTED · MANUAL REVIEW · INFO" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { background: var(--bg-surface); margin: 0; padding: 22px 24px; font-family: var(--font-sans); }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .cell { border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); overflow: hidden; }
+  .bar { height: 52px; display: flex; align-items: center; justify-content: center; }
+  .bar .tag { font: var(--fw-bold) 12px/1 var(--font-sans); letter-spacing: var(--ls-wide); text-transform: uppercase; color:#fff; }
+  .body { padding: 10px 12px; }
+  .name { font-size: 13px; font-weight: 600; color: var(--text-strong); }
+  .hex { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+  .soft { display:inline-block; margin-top: 8px; padding: 3px 8px; border-radius: var(--radius-pill); font-size: 11px; font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="grid">
+    <div class="cell">
+      <div class="bar" style="background:var(--status-approved)"><span class="tag">Approved</span></div>
+      <div class="body"><div class="name">Approved</div><div class="hex">--status-approved</div>
+        <span class="soft" style="background:var(--status-approved-soft);color:var(--status-approved-text)">≥ 0.80 match</span></div>
+    </div>
+    <div class="cell">
+      <div class="bar" style="background:var(--status-review)"><span class="tag">Review</span></div>
+      <div class="body"><div class="name">Manual review</div><div class="hex">--status-review</div>
+        <span class="soft" style="background:var(--status-review-soft);color:var(--status-review-text)">0.60–0.79</span></div>
+    </div>
+    <div class="cell">
+      <div class="bar" style="background:var(--status-rejected)"><span class="tag">Rejected</span></div>
+      <div class="body"><div class="name">Rejected</div><div class="hex">--status-rejected</div>
+        <span class="soft" style="background:var(--status-rejected-soft);color:var(--status-rejected-text)">&lt; 0.60</span></div>
+    </div>
+    <div class="cell">
+      <div class="bar" style="background:var(--status-info)"><span class="tag">Info</span></div>
+      <div class="body"><div class="name">Info / secure</div><div class="hex">--status-info</div>
+        <span class="soft" style="background:var(--status-info-soft);color:var(--status-info-text)">neutral</span></div>
+    </div>
+  </div>
+</body>
+</html>

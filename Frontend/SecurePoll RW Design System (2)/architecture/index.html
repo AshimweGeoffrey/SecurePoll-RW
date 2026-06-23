@@ -1,0 +1,83 @@
+<!-- @dsCard group="Architecture" viewport="1100x720" name="Overview Hub" subtitle="Navigable index of the architecture & data-flow visuals" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SecurePoll RW — Architecture Overview</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+  html,body { margin:0; }
+  body { background:
+      radial-gradient(120% 70% at 50% -10%, color-mix(in oklab, var(--green-500) 7%, transparent), transparent 55%),
+      var(--bg-canvas); min-height:100vh; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 48px 40px 56px; }
+  .head { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; margin-bottom:8px; }
+  .head .l { display:flex; align-items:center; gap:16px; }
+  .head img { height:46px; }
+  .eyebrow { font-size:11px; font-weight:700; letter-spacing:var(--ls-caps); text-transform:uppercase; color:var(--primary-text); }
+  .head h1 { font-family:var(--font-display); font-size:38px; font-weight:600; letter-spacing:-0.02em; color:var(--text-strong); line-height:1.04; margin-top:4px; }
+  .head .meta { text-align:right; font-size:12px; color:var(--text-muted); line-height:1.7; }
+  .head .meta b { color:var(--text-strong); font-weight:600; }
+  .sub { font-size:15px; color:var(--text-default); max-width:640px; margin:14px 0 32px; line-height:1.6; }
+
+  .grid { display:grid; grid-template-columns: repeat(2, 1fr); gap:18px; }
+  a.card { text-decoration:none; display:flex; flex-direction:column; gap:0; background:var(--bg-surface); border:1px solid var(--border-default); border-radius:var(--radius-xl); overflow:hidden; box-shadow:var(--shadow-sm); transition: var(--transition-control); }
+  a.card:hover { box-shadow:var(--shadow-lg); transform:translateY(-2px); border-color:var(--primary-soft-border); }
+  .card .top { display:flex; align-items:center; gap:14px; padding:18px 20px 16px; }
+  .card .num { font-family:var(--font-mono); font-size:13px; font-weight:700; color:#fff; background:var(--text-strong); width:30px;height:30px;border-radius:8px; display:grid;place-items:center; flex-shrink:0; }
+  .card.accent .num { background:var(--primary); }
+  .card .ic { width:34px;height:34px;border-radius:var(--radius-md); background:var(--primary-soft); color:var(--primary-text); display:grid;place-items:center; }
+  .card .ic i { width:19px;height:19px; }
+  .card h3 { font-family:var(--font-display); font-size:18px; font-weight:600; color:var(--text-strong); }
+  .card p { padding:0 20px 18px; font-size:13px; color:var(--text-muted); line-height:1.5; }
+  .card .go { margin-top:auto; padding:12px 20px; border-top:1px solid var(--border-subtle); display:flex; align-items:center; justify-content:space-between; font-size:12px; font-weight:600; color:var(--primary-text); }
+  .card .go i { width:15px;height:15px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="head">
+      <div class="l">
+        <img src="../assets/mark.svg" alt="">
+        <div>
+          <div class="eyebrow">SecurePoll RW · NEC Rwanda</div>
+          <h1>Architecture &amp; Data Flow</h1>
+        </div>
+      </div>
+      <div class="meta"><b>AI-powered voter authentication</b><br>microservices · offline-first<br>5 roles · 12 modules</div>
+    </div>
+    <p class="sub">A microservices platform for voter authentication and identity verification across two phases — pre-election enrollment and election-day verification. Five linked visualizations cover the system end to end.</p>
+
+    <div class="grid">
+      <a class="card" href="01-system-architecture.html">
+        <div class="top"><span class="num">01</span><div class="ic"><i data-lucide="layers"></i></div><h3>System Architecture</h3></div>
+        <p>The full layered stack — client apps, API gateway, eleven backend microservices, and the data layer.</p>
+        <div class="go"><span>Open diagram</span><i data-lucide="arrow-right"></i></div>
+      </a>
+      <a class="card accent" href="02-verification-flow.html">
+        <div class="top"><span class="num">02</span><div class="ic"><i data-lucide="route"></i></div><h3>Verification Flow</h3></div>
+        <p>The sub-500ms election-day check-in pipeline and the explainable-AI decision gate.</p>
+        <div class="go"><span>Open diagram</span><i data-lucide="arrow-right"></i></div>
+      </a>
+      <a class="card" href="03-event-bus.html">
+        <div class="top"><span class="num">03</span><div class="ic"><i data-lucide="radio-tower"></i></div><h3>Event Bus &amp; Messaging</h3></div>
+        <p>The RabbitMQ topic exchange — publishers, routing keys, and subscriber fan-out.</p>
+        <div class="go"><span>Open diagram</span><i data-lucide="arrow-right"></i></div>
+      </a>
+      <a class="card" href="04-security-zones.html">
+        <div class="top"><span class="num">04</span><div class="ic"><i data-lucide="shield-check"></i></div><h3>Security Zones &amp; Deployment</h3></div>
+        <p>DMZ, internal network, and the isolated biometric zone — plus the polling-station edge.</p>
+        <div class="go"><span>Open diagram</span><i data-lucide="arrow-right"></i></div>
+      </a>
+      <a class="card" href="05-offline-sync.html" style="grid-column: span 2;">
+        <div class="top"><span class="num">05</span><div class="ic"><i data-lucide="cloud-off"></i></div><h3>Offline Sync Architecture</h3></div>
+        <p>How polling stations keep verifying — and stay double-vote safe — through hours of zero connectivity, then reconcile on reconnect.</p>
+        <div class="go"><span>Open diagram</span><i data-lucide="arrow-right"></i></div>
+      </a>
+    </div>
+  </div>
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script>function draw(){ if(window.lucide) lucide.createIcons(); } draw(); window.addEventListener('load', draw);</script>
+</body>
+</html>

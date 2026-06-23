@@ -1,0 +1,24 @@
+.reg { min-height: 100vh; background: var(--bg-canvas); display: flex; flex-direction: column; }
+.reg__bar { display: flex; align-items: center; gap: var(--space-4); padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--border-subtle); background: var(--bg-surface); }
+.reg__body { flex: 1; max-width: 760px; width: 100%; margin: 0 auto; padding: var(--space-6); }
+.reg__steps { display: flex; gap: var(--space-2); margin-bottom: var(--space-6); }
+.reg__step { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.reg__step .bar { height: 4px; border-radius: var(--radius-pill); background: var(--bg-inset); transition: background var(--dur-base) var(--ease-standard); }
+.reg__step.done .bar, .reg__step.active .bar { background: var(--primary); }
+.reg__step .lbl { font-size: var(--text-2xs); font-weight: 700; letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--text-subtle); }
+.reg__step.active .lbl, .reg__step.done .lbl { color: var(--primary-text); }
+.reg__card { background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-xl); box-shadow: var(--shadow-sm); padding: var(--space-6); }
+.reg__issue { text-align: center; padding: var(--space-6) 0; }
+.reg__token { font-family: var(--font-mono); font-size: var(--text-3xl); font-weight: 700; letter-spacing: 0.06em; color: var(--text-strong);
+  background: var(--bg-inset); border: 1px dashed var(--border-default); border-radius: var(--radius-lg); padding: var(--space-4); display: inline-block; margin-top: var(--space-3); }
+
+/* ── mobile ── */
+@media (max-width: 640px) {
+  .reg__bar { flex-wrap: wrap; gap: var(--space-2) var(--space-3); padding: var(--space-3) var(--space-4); }
+  .reg__body { padding: var(--space-4); }
+  .reg__card { padding: var(--space-4); }
+  .reg__step .lbl { font-size: 0; }            /* keep the progress bars, drop cramped labels */
+  .reg__step .lbl::first-letter { font-size: var(--text-2xs); }
+  .reg__token { font-size: var(--text-2xl); }
+}

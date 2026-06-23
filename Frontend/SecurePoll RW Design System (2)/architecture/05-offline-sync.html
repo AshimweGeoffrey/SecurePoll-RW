@@ -1,0 +1,112 @@
+<!-- @dsCard group="Architecture" viewport="1340x760" name="Offline Sync Architecture" subtitle="Pre-load · offline verification · reconnect & reconcile" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SecurePoll RW — Offline Sync</title>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="diagram.css">
+<style>
+  html,body { margin:0; }
+  .canvas { width: 1340px; margin: 0 auto; }
+
+  .stages { display:grid; grid-template-columns: 1fr 1.25fr 1fr; gap:20px; align-items:stretch; position:relative; }
+  .stage { border:1px solid var(--border-default); border-radius:var(--radius-xl); background:var(--bg-surface); box-shadow:var(--shadow-sm); padding:18px 18px 20px; display:flex; flex-direction:column; }
+  .stage--off { background:var(--band-secure); border-color:#2f6fdb; }
+  .stage-h { display:flex; align-items:center; gap:10px; margin-bottom:4px; }
+  .stage-h .badge { width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#fff;background:var(--text-strong); }
+  .stage-h h3 { font-family:var(--font-display); font-size:16px; font-weight:600; color:var(--text-strong); }
+  .stage--off .stage-h h3 { color:#fff; }
+  .stage--off .stage-h .badge { background:#2f6fdb; }
+  .stage .when { font-size:11px; font-weight:600; letter-spacing:var(--ls-caps); text-transform:uppercase; color:var(--text-muted); margin-bottom:16px; }
+  .stage--off .when { color:#9bb6e0; }
+
+  .item { display:flex; gap:11px; align-items:flex-start; padding:9px 0; border-bottom:1px solid var(--border-subtle); }
+  .item:last-child { border-bottom:none; }
+  .stage--off .item { border-color:#234a82; }
+  .item i { width:16px;height:16px;color:var(--primary-text);margin-top:1px;flex-shrink:0; }
+  .stage--off .item i { color:#7fb0ff; }
+  .item .nm { font-size:13px; font-weight:600; color:var(--text-strong); }
+  .stage--off .item .nm { color:#eaf2ff; }
+  .item .dt { font-size:11.5px; color:var(--text-muted); line-height:1.4; }
+  .stage--off .item .dt { color:#9bb6e0; }
+
+  .store { margin-top:14px; background:#0c1c33; border:1px solid #234a82; border-radius:var(--radius-md); padding:12px; }
+  .store .sh { font-family:var(--font-mono); font-size:11px; color:#7fb0ff; margin-bottom:8px; display:flex; align-items:center; gap:7px; }
+  .store .sh i { width:13px;height:13px; }
+  .store .srow { display:flex; align-items:center; gap:8px; font-size:11.5px; color:#dbe7ff; padding:4px 0; }
+  .store .srow .k { width:7px;height:7px;border-radius:50%;background:#2f6fdb; }
+  .store .srow b { color:#fff; font-weight:600; }
+  .store .srow .hot { background:var(--status-review); }
+
+  .conn { position:absolute; top:46%; width:30px; z-index:5; display:flex; flex-direction:column; align-items:center; }
+  .conn .lbl { font-family:var(--font-mono); font-size:10px; color:var(--text-muted); background:var(--bg-canvas); padding:2px 4px; white-space:nowrap; margin-bottom:4px; }
+  .conn .ar { color:var(--border-strong); }
+  .c1 { left:calc(33% - 7px); } .c2 { left:calc(66% - 1px); }
+
+  .note { margin-top:22px; display:flex; gap:14px; align-items:center; background:var(--status-review-soft); border:1px solid var(--status-review); border-radius:var(--radius-lg); padding:14px 18px; }
+  .note i { width:20px;height:20px;color:var(--status-review-text);flex-shrink:0; }
+  .note .nt { font-size:13px; color:var(--text-default); }
+  .note .nt b { color:var(--status-review-text); font-weight:700; }
+</style>
+</head>
+<body>
+<div class="arch">
+  <div class="canvas">
+    <div class="arch-head">
+      <div class="ttl">
+        <img class="mark" src="../assets/mark.svg" alt="">
+        <div>
+          <div class="eyebrow">SecurePoll RW · Resilience</div>
+          <h1>Offline Sync Architecture</h1>
+        </div>
+      </div>
+      <div class="meta"><b>~4 hours</b> offline operation<br>per polling station<br>double-vote safe without network</div>
+    </div>
+
+    <div class="stages">
+      <div class="stage">
+        <div class="stage-h"><span class="badge">1</span><h3>Pre-load</h3></div>
+        <div class="when">Before election day</div>
+        <div class="item"><i data-lucide="zap"></i><div><div class="nm">Redis biometric pre-cache</div><div class="dt">Templates for the station's roster pushed from the server</div></div></div>
+        <div class="item"><i data-lucide="download"></i><div><div class="nm">Encrypted bundle → tablet</div><div class="dt">Written into local SQLite, AES-encrypted at rest</div></div></div>
+        <div class="item"><i data-lucide="check-check"></i><div><div class="nm">Integrity check</div><div class="dt">Station confirms roster &amp; cache before polls open</div></div></div>
+      </div>
+
+      <div class="stage stage--off">
+        <div class="stage-h"><span class="badge">2</span><h3>Offline operation</h3></div>
+        <div class="when">Network dropped</div>
+        <div class="item"><i data-lucide="scan-face"></i><div><div class="nm">Local verification</div><div class="dt">Face / fingerprint matched on-device against the cache</div></div></div>
+        <div class="item"><i data-lucide="shield-check"></i><div><div class="nm">Bloom filter = authority</div><div class="dt">Local "voted set" blocks double-voting until sync</div></div></div>
+        <div class="store">
+          <div class="sh"><i data-lucide="database"></i>Local SQLite (encrypted)</div>
+          <div class="srow"><span class="k"></span>Biometric cache <b>pre-loaded</b></div>
+          <div class="srow"><span class="k"></span>Verification queue <b>pending sync</b></div>
+          <div class="srow"><span class="k hot"></span>Voted bloom filter <b>double-vote lock</b></div>
+        </div>
+      </div>
+
+      <div class="stage">
+        <div class="stage-h"><span class="badge">3</span><h3>Reconnect &amp; reconcile</h3></div>
+        <div class="when">Network restored</div>
+        <div class="item"><i data-lucide="upload-cloud"></i><div><div class="nm">POST /verify/sync</div><div class="dt">Batch of queued verifications sent to Verification Service</div></div></div>
+        <div class="item"><i data-lucide="git-merge"></i><div><div class="nm">Server processes queue</div><div class="dt">Sequential apply · row-locked VOTED writes to Voter DB</div></div></div>
+        <div class="item"><i data-lucide="bell"></i><div><div class="nm">sync.completed</div><div class="dt">Election Ops + Notification updated; turnout reconciled</div></div></div>
+      </div>
+
+      <div class="conn c1"><span class="lbl">push cache</span><i class="ar" data-lucide="arrow-right"></i></div>
+      <div class="conn c2"><span class="lbl">on reconnect</span><i class="ar" data-lucide="arrow-right"></i></div>
+    </div>
+
+    <div class="note">
+      <i data-lucide="alert-triangle"></i>
+      <div class="nt">End-of-day <b>reconciliation</b> flags any station where the physical ballot count ≠ the system count — the offline bloom filter guarantees a voter can never be checked in twice, even with zero connectivity.</div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script>function draw(){ if(window.lucide) lucide.createIcons(); } draw(); window.addEventListener('load', draw);</script>
+</body>
+</html>

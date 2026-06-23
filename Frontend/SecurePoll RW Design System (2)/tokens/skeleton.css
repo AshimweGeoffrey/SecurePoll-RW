@@ -1,0 +1,53 @@
+/* ============================================================
+   SecurePoll RW — Skeleton loading primitives
+   Use while data is being fetched. Shimmer respects reduced motion.
+   Building blocks:
+     .sk            base shimmer block (set width/height or use modifiers)
+     .sk-line       a text line (1em tall, rounded)
+     .sk-line.w-40 / .w-60 / .w-80   width helpers
+     .sk-title      heading-height line
+     .sk-circle     round avatar (set --sz)
+     .sk-chip       pill / badge placeholder
+     .sk-btn        button placeholder
+   Layout helpers:
+     .sk-stack      vertical stack (gap via --g)
+     .sk-row        horizontal row, centred (gap via --g)
+   ============================================================ */
+
+.sk{
+  position:relative; overflow:hidden;
+  background:var(--bg-inset, #ecede9);
+  border-radius:var(--radius-sm, 6px);
+}
+.sk::after{
+  content:""; position:absolute; inset:0;
+  transform:translateX(-100%);
+  background:linear-gradient(90deg,
+    transparent,
+    color-mix(in oklab, var(--bg-surface, #fff) 70%, transparent),
+    transparent);
+  animation:sk-shimmer 1.35s ease-in-out infinite;
+}
+[data-theme="dark"] .sk::after{
+  background:linear-gradient(90deg, transparent,
+    color-mix(in oklab, #ffffff 9%, transparent), transparent);
+}
+@keyframes sk-shimmer{ 100%{ transform:translateX(100%); } }
+
+.sk-line{ height:.72em; border-radius:var(--radius-pill, 999px); }
+.sk-line + .sk-line{ margin-top:.55em; }
+.sk-title{ height:1.05em; border-radius:var(--radius-sm, 6px); width:46%; }
+.sk-line.w-90{ width:90%; } .sk-line.w-80{ width:80%; } .sk-line.w-70{ width:70%; }
+.sk-line.w-60{ width:60%; } .sk-line.w-50{ width:50%; } .sk-line.w-40{ width:40%; } .sk-line.w-30{ width:30%; }
+.sk-circle{ width:var(--sz, 40px); height:var(--sz, 40px); border-radius:50%; flex-shrink:0; }
+.sk-chip{ height:20px; width:72px; border-radius:var(--radius-pill, 999px); }
+.sk-btn{ height:38px; width:120px; border-radius:var(--radius-md, 10px); }
+.sk-block{ height:var(--h, 120px); border-radius:var(--radius-lg, 14px); }
+
+.sk-stack{ display:flex; flex-direction:column; gap:var(--g, 10px); }
+.sk-row{ display:flex; align-items:center; gap:var(--g, 12px); }
+.sk-grow{ flex:1; min-width:0; }
+
+@media (prefers-reduced-motion: reduce){
+  .sk::after{ animation:none; }
+}

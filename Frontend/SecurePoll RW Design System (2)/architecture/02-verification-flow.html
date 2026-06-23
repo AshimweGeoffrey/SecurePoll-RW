@@ -1,0 +1,120 @@
+<!-- @dsCard group="Architecture" viewport="1340x880" name="Election-Day Verification Flow" subtitle="The <500ms check-in pipeline + explainable AI decision gate" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SecurePoll RW — Verification Flow</title>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="diagram.css">
+<style>
+  html,body { margin:0; }
+  .canvas { width: 1340px; margin: 0 auto; }
+
+  .pipe { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0; align-items: stretch; }
+  .step { position: relative; padding: 0 9px; }
+  .step:not(:last-child)::after {
+    content: ""; position: absolute; top: 34px; right: -7px; width: 14px; height: 2px; background: var(--border-strong); z-index: 2;
+  }
+  .step:not(:last-child)::before {
+    content: ""; position: absolute; top: 30px; right: -10px; z-index: 3;
+    border-left: 7px solid var(--border-strong); border-top: 5px solid transparent; border-bottom: 5px solid transparent;
+  }
+  .step-card { background: var(--bg-surface); border: 1px solid var(--border-default); border-radius: var(--radius-lg); padding: 14px; box-shadow: var(--shadow-sm); height: 100%; display:flex; flex-direction:column; gap:7px; }
+  .step-num { position:absolute; top:-9px; left:18px; width:24px;height:24px;border-radius:50%; background:var(--text-strong); color:#fff; font-family:var(--font-mono); font-size:12px; font-weight:700; display:grid; place-items:center; z-index:4; box-shadow: var(--shadow-sm);}
+  .step-card .ico { width:34px;height:34px;border-radius:var(--radius-md); background:var(--primary-soft); color:var(--primary-text); display:grid; place-items:center; }
+  .step-card .ico i { width:19px;height:19px; }
+  .step-card h3 { font-size:13.5px; font-weight:600; color:var(--text-strong); line-height:1.25; }
+  .step-card .svc { font-family:var(--font-mono); font-size:10px; color:var(--secondary-text); background:var(--secondary-soft); padding:2px 7px; border-radius:var(--radius-sm); align-self:flex-start; }
+  .step-card .lat { font-size:10.5px; color:var(--text-muted); margin-top:auto; }
+
+  .gate { display:grid; grid-template-columns: 320px 1fr; gap: 22px; align-items: stretch; }
+  .xai { background:var(--bg-surface); border:1px solid var(--border-default); border-radius:var(--radius-xl); padding:18px 20px; box-shadow: var(--shadow-md); }
+  .xai .lbl { font-size:11px; font-weight:700; letter-spacing:var(--ls-caps); text-transform:uppercase; color:var(--text-muted); }
+  .xai .big { font-family:var(--font-mono); font-size:46px; font-weight:700; color:var(--status-approved-text); line-height:1; margin:6px 0 2px; }
+  .xai .big small { font-size:16px; color:var(--text-muted); font-weight:500; }
+  .meter { height:10px; border-radius:var(--radius-pill); background:var(--bg-inset); overflow:hidden; margin:10px 0 14px; position:relative; }
+  .meter .fill { height:100%; width:91%; background:linear-gradient(90deg, var(--green-400), var(--green-600)); border-radius:var(--radius-pill); }
+  .meter .thr { position:absolute; top:-3px; bottom:-3px; left:80%; width:2px; background:var(--text-strong); }
+  .bd { display:flex; justify-content:space-between; font-size:12px; padding:5px 0; border-bottom:1px solid var(--border-subtle); }
+  .bd:last-child { border-bottom:none; }
+  .bd span:first-child { color:var(--text-muted); }
+  .bd span:last-child { font-family:var(--font-mono); font-weight:600; color:var(--text-strong); }
+
+  .outcomes { display:grid; grid-template-rows: repeat(3, 1fr); gap:12px; }
+  .oc { display:grid; grid-template-columns: 120px 1fr auto; align-items:center; gap:16px; border-radius:var(--radius-lg); padding:14px 18px; border:1px solid; }
+  .oc--ok { background:var(--status-approved-soft); border-color:var(--status-approved); }
+  .oc--rv { background:var(--status-review-soft); border-color:var(--status-review); }
+  .oc--no { background:var(--status-rejected-soft); border-color:var(--status-rejected); }
+  .oc .range { font-family:var(--font-mono); font-size:15px; font-weight:700; }
+  .oc--ok .range { color:var(--status-approved-text); } .oc--rv .range { color:var(--status-review-text); } .oc--no .range { color:var(--status-rejected-text); }
+  .oc .verdict { font-family:var(--font-display); font-size:18px; font-weight:600; }
+  .oc--ok .verdict { color:var(--status-approved-text); } .oc--rv .verdict { color:var(--status-review-text); } .oc--no .verdict { color:var(--status-rejected-text); }
+  .oc .desc { font-size:12px; color:var(--text-default); }
+  .oc .act { font-family:var(--font-mono); font-size:11px; color:var(--text-muted); text-align:right; }
+
+  .rail { display:flex; gap:14px; margin-top:18px; }
+  .rail .chip { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-default); background:var(--bg-surface); border:1px solid var(--border-default); border-radius:var(--radius-pill); padding:7px 14px; box-shadow:var(--shadow-xs); }
+  .rail .chip i { width:14px;height:14px;color:var(--primary); }
+  .rail .chip b { color:var(--text-strong); font-weight:600; }
+  .sec-h { display:flex; align-items:baseline; gap:12px; margin:30px 0 26px; }
+  .sec-h .n { font-family:var(--font-mono); font-size:13px; font-weight:700; color:var(--primary-text); }
+  .sec-h h2 { font-family:var(--font-display); font-size:20px; font-weight:600; color:var(--text-strong); }
+  .sec-h .hint { font-size:12px; color:var(--text-muted); margin-left:auto; }
+</style>
+</head>
+<body>
+<div class="arch">
+  <div class="canvas">
+    <div class="arch-head">
+      <div class="ttl">
+        <img class="mark" src="../assets/mark.svg" alt="">
+        <div>
+          <div class="eyebrow">SecurePoll RW · Election Day</div>
+          <h1>Voter Verification Flow</h1>
+        </div>
+      </div>
+      <div class="meta"><b>Target &lt; 500 ms</b><br>end-to-end at the polling station<br>face + fingerprint · multimodal</div>
+    </div>
+
+    <div class="sec-h"><span class="n">A</span><h2>The check-in pipeline</h2><span class="hint">Voter presents QR card → ballot granted</span></div>
+
+    <div class="pipe">
+      <div class="step"><span class="step-num">1</span><div class="step-card"><div class="ico"><i data-lucide="qr-code"></i></div><h3>Scan voter ID</h3><span class="svc">Polling App</span><span class="lat">QR · NFC · barcode</span></div></div>
+      <div class="step"><span class="step-num">2</span><div class="step-card"><div class="ico"><i data-lucide="user-check"></i></div><h3>Eligibility lookup</h3><span class="svc">Voter Registry</span><span class="lat">registered · not voted · station</span></div></div>
+      <div class="step"><span class="step-num">3</span><div class="step-card"><div class="ico"><i data-lucide="scan-eye"></i></div><h3>Liveness check</h3><span class="svc">AI Service</span><span class="lat">passive CNN · LIVE/SPOOF</span></div></div>
+      <div class="step"><span class="step-num">4</span><div class="step-card"><div class="ico"><i data-lucide="scan-face"></i></div><h3>1:1 face match</h3><span class="svc">AI ← Biometric DB</span><span class="lat">ArcFace · cosine</span></div></div>
+      <div class="step"><span class="step-num">5</span><div class="step-card"><div class="ico"><i data-lucide="fingerprint"></i></div><h3>Fingerprint match</h3><span class="svc">AI Service</span><span class="lat">optional · minutiae</span></div></div>
+      <div class="step"><span class="step-num">6</span><div class="step-card"><div class="ico"><i data-lucide="sigma"></i></div><h3>Fused score</h3><span class="svc">AI Service</span><span class="lat">face 60% · print 40%</span></div></div>
+    </div>
+
+    <div class="rail">
+      <div class="chip"><i data-lucide="file-check-2"></i><b>Audit Service</b> logs every step (hash-chained)</div>
+      <div class="chip"><i data-lucide="lock"></i> Templates fetched over <b>mTLS</b>, never leave isolated zone</div>
+    </div>
+
+    <div class="sec-h"><span class="n">B</span><h2>The decision gate — Explainable AI</h2><span class="hint">Every decision ships a confidence, a breakdown and a plain-language reason</span></div>
+
+    <div class="gate">
+      <div class="xai">
+        <div class="lbl">Fused confidence</div>
+        <div class="big">0.91<small> / 1.00</small></div>
+        <div class="meter"><div class="fill"></div><div class="thr"></div></div>
+        <div class="bd"><span>Face match</span><span>0.94</span></div>
+        <div class="bd"><span>Fingerprint</span><span>0.87</span></div>
+        <div class="bd"><span>Liveness</span><span style="color:var(--status-approved-text)">LIVE</span></div>
+        <div class="bd"><span>Threshold</span><span>0.80</span></div>
+      </div>
+      <div class="outcomes">
+        <div class="oc oc--ok"><span class="range">≥ 0.80</span><div><div class="verdict">APPROVED</div><div class="desc">Auto-pass · Voter Registry marks VOTED (row-locked) · VOTER_VOTED → Election Ops</div></div><span class="act">green screen<br>grant ballot</span></div>
+        <div class="oc oc--rv"><span class="range">0.60–0.79</span><div><div class="verdict">MANUAL REVIEW</div><div class="desc">Officer sees the breakdown &amp; explanation, decides with a logged justification</div></div><span class="act">officer<br>decision</span></div>
+        <div class="oc oc--no"><span class="range">&lt; 0.60</span><div><div class="verdict">REJECTED</div><div class="desc">Logged · supervisor alerted · VERIFICATION_FAILED event if repeated</div></div><span class="act">supervisor<br>alerted</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script>function draw(){ if(window.lucide) lucide.createIcons(); } draw(); window.addEventListener('load', draw);</script>
+</body>
+</html>

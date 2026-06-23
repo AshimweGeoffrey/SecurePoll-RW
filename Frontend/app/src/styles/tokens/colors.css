@@ -1,0 +1,196 @@
+/* ============================================================
+   SecurePoll RW — Color System
+   Rwanda flag palette (green · sky blue · sun gold), tuned DOWN:
+   lower chroma, earthy neutrals, deep-forest brand ink.
+   Calm and institutional — never neon or "shining".
+   Raw palette (scales) + semantic aliases (light default, dark override).
+   ============================================================ */
+
+:root {
+  /* ---- Neutral (warm earthen slate) ---- */
+  --slate-50:  #f7f6f4;
+  --slate-100: #ecede9;
+  --slate-200: #deded8;
+  --slate-300: #c5c6bd;
+  --slate-400: #95988e;
+  --slate-500: #686b62;
+  --slate-600: #4d5048;
+  --slate-700: #3a3d36;
+  --slate-800: #272a25;
+  --slate-900: #181b17;
+  --slate-950: #0f110d;
+
+  /* ---- Rwanda Green (primary) — muted flag green ---- */
+  --green-50:  #edf4ee;
+  --green-100: #d6e6da;
+  --green-200: #adccb6;
+  --green-300: #80b08d;
+  --green-400: #549069;
+  --green-500: #357551;   /* primary */
+  --green-600: #2a5e41;
+  --green-700: #214a34;
+  --green-800: #1c3d2b;
+  --green-900: #163022;
+
+  /* ---- Rwanda Sky (secondary / info / "verified") — muted sky blue ---- */
+  --blue-50:  #ebf2f6;
+  --blue-100: #d4e3ec;
+  --blue-200: #aecbda;
+  --blue-300: #7fadc3;
+  --blue-400: #538ba8;
+  --blue-500: #386f8d;   /* secondary */
+  --blue-600: #2d5a73;
+  --blue-700: #25495d;
+  --blue-800: #1f3c4d;
+  --blue-900: #1b3340;
+
+  /* ---- Red (rejected / danger) — muted brick ---- */
+  --red-50:  #fbeceb;
+  --red-100: #f6d6d3;
+  --red-200: #eaaaa4;
+  --red-300: #db7e76;
+  --red-400: #c95b51;
+  --red-500: #b3443b;
+  --red-600: #933630;
+  --red-700: #762d28;
+  --red-800: #602623;
+  --red-900: #50201e;
+
+  /* ---- Sun Gold (manual review / warning / accent) — muted flag sun ---- */
+  --amber-50:  #faf4e2;
+  --amber-100: #f2e4bc;
+  --amber-200: #e6cd85;
+  --amber-300: #d4b257;
+  --amber-400: #c0982f;
+  --amber-500: #a37d1f;
+  --amber-600: #836218;
+  --amber-700: #694f18;
+  --amber-800: #574116;
+  --amber-900: #483715;
+
+  /* ---- Brand gradient anchors (deep forest ink, not blue-black) ---- */
+  --grad-ink-from: #1b2b23;
+  --grad-ink-to:   #0f1a14;
+  --grad-green-from: #357551;
+  --grad-green-to:   #214a34;
+}
+
+/* =========================================================
+   SEMANTIC ALIASES — LIGHT (default)
+   ========================================================= */
+:root {
+  color-scheme: light;
+
+  /* surfaces */
+  --bg-canvas:    var(--slate-50);
+  --bg-surface:   #ffffff;
+  --bg-subtle:    var(--slate-100);
+  --bg-inset:     var(--slate-100);
+  --bg-overlay:   rgba(15, 17, 13, 0.45);
+
+  /* borders */
+  --border-subtle:  var(--slate-200);
+  --border-default: var(--slate-300);
+  --border-strong:  var(--slate-400);
+
+  /* text */
+  --text-strong:    var(--slate-900);
+  --text-default:   var(--slate-700);
+  --text-muted:     var(--slate-500);
+  --text-subtle:    var(--slate-400);
+  --text-on-accent: #ffffff;
+  --text-link:      var(--blue-600);
+
+  /* primary (Rwanda green) */
+  --primary:        var(--green-500);
+  --primary-hover:  var(--green-600);
+  --primary-press:  var(--green-700);
+  --primary-soft:   var(--green-50);
+  --primary-soft-border: var(--green-200);
+  --primary-text:   var(--green-700);
+
+  /* secondary (Rwanda sky) */
+  --secondary:      var(--blue-500);
+  --secondary-soft: var(--blue-50);
+  --secondary-text: var(--blue-700);
+
+  /* status: approved / rejected / review / info */
+  --status-approved:      var(--green-500);
+  --status-approved-soft: var(--green-50);
+  --status-approved-text: var(--green-700);
+  --status-rejected:      var(--red-500);
+  --status-rejected-soft: var(--red-50);
+  --status-rejected-text: var(--red-700);
+  --status-review:        var(--amber-400);
+  --status-review-soft:   var(--amber-50);
+  --status-review-text:   var(--amber-700);
+  --status-info:          var(--blue-500);
+  --status-info-soft:     var(--blue-50);
+  --status-info-text:     var(--blue-700);
+
+  /* focus ring */
+  --ring: color-mix(in oklab, var(--green-500) 50%, transparent);
+
+  /* diagram bands (architecture visuals) */
+  --band-client:  #eef2f4;
+  --band-gateway: #edf4ee;
+  --band-service: #ffffff;
+  --band-data:    #f1f3f0;
+  --band-secure:  #1b3340;
+}
+
+/* =========================================================
+   SEMANTIC ALIASES — DARK (kiosk / polling station)
+   ========================================================= */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg-canvas:    var(--slate-950);
+  --bg-surface:   var(--slate-900);
+  --bg-subtle:    var(--slate-800);
+  --bg-inset:     #12150f;
+  --bg-overlay:   rgba(0, 0, 0, 0.6);
+
+  --border-subtle:  #272a25;
+  --border-default: var(--slate-700);
+  --border-strong:  var(--slate-600);
+
+  --text-strong:    var(--slate-50);
+  --text-default:   var(--slate-200);
+  --text-muted:     var(--slate-400);
+  --text-subtle:    var(--slate-500);
+  --text-on-accent: #ffffff;
+  --text-link:      var(--blue-300);
+
+  --primary:        var(--green-400);
+  --primary-hover:  var(--green-300);
+  --primary-press:  var(--green-500);
+  --primary-soft:   rgba(84, 144, 105, 0.15);
+  --primary-soft-border: rgba(84, 144, 105, 0.36);
+  --primary-text:   var(--green-300);
+
+  --secondary:      var(--blue-400);
+  --secondary-soft: rgba(83, 139, 168, 0.16);
+  --secondary-text: var(--blue-300);
+
+  --status-approved:      var(--green-400);
+  --status-approved-soft: rgba(84, 144, 105, 0.16);
+  --status-approved-text: var(--green-300);
+  --status-rejected:      var(--red-400);
+  --status-rejected-soft: rgba(201, 91, 81, 0.16);
+  --status-rejected-text: #e8a59f;
+  --status-review:        var(--amber-300);
+  --status-review-soft:   rgba(212, 178, 87, 0.16);
+  --status-review-text:   var(--amber-200);
+  --status-info:          var(--blue-400);
+  --status-info-soft:     rgba(83, 139, 168, 0.16);
+  --status-info-text:     var(--blue-300);
+
+  --ring: color-mix(in oklab, var(--green-400) 55%, transparent);
+
+  --band-client:  #181b17;
+  --band-gateway: #122017;
+  --band-service: #1b1f19;
+  --band-data:    #14180f;
+  --band-secure:  #15303a;
+}

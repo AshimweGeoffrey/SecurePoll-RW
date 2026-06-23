@@ -1,0 +1,108 @@
+/* ============================================================
+   SecurePoll RW — Architecture diagram language
+   Layered bands · node cards · labelled connectors.
+   Built on the design-system tokens.
+   ============================================================ */
+
+.arch {
+  font-family: var(--font-sans);
+  color: var(--text-default);
+  background:
+    radial-gradient(120% 80% at 50% -10%, color-mix(in oklab, var(--green-500) 5%, transparent), transparent 60%),
+    var(--bg-canvas);
+  padding: 40px 44px 48px;
+}
+
+.arch-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+.arch-head .ttl { display: flex; align-items: center; gap: 14px; }
+.arch-head .ttl > div { display: flex; flex-direction: column; gap: 5px; }
+.arch-head img.mark { height: 38px; }
+.arch-head h1 { font-family: var(--font-display); font-size: 28px; font-weight: 600; letter-spacing: -0.02em; color: var(--text-strong); line-height: 1.05; }
+.arch-head .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--primary-text); line-height: 1.2; }
+.arch-head .meta { text-align: right; font-size: 11px; color: var(--text-muted); line-height: 1.6; }
+.arch-head .meta b { color: var(--text-strong); font-weight: 600; }
+
+/* ---- Layered band ---- */
+.band {
+  position: relative;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  padding: 18px 20px 20px;
+  background: var(--band-service);
+}
+.band + .band { margin-top: 0; }
+.band--client  { background: var(--band-client); }
+.band--gateway { background: var(--band-gateway); border-color: var(--primary-soft-border); }
+.band--data    { background: var(--band-data); }
+.band--secure  { background: var(--band-secure); border-color: #1f3f73; }
+
+.band-label {
+  position: absolute; top: -10px; left: 18px;
+  background: var(--text-strong); color: #fff;
+  font-size: 10px; font-weight: 700; letter-spacing: var(--ls-caps); text-transform: uppercase;
+  padding: 4px 11px; border-radius: var(--radius-pill);
+}
+.band--gateway .band-label { background: var(--primary); }
+.band--secure  .band-label { background: #2f6fdb; }
+.band-note { position: absolute; top: -9px; right: 18px; font-size: 11px; color: var(--text-muted); background: var(--bg-canvas); padding: 2px 8px; }
+
+/* ---- Node grids ---- */
+.node-grid { display: grid; gap: 12px; }
+.cols-2 { grid-template-columns: repeat(2, 1fr); }
+.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.cols-4 { grid-template-columns: repeat(4, 1fr); }
+.cols-6 { grid-template-columns: repeat(6, 1fr); }
+
+/* ---- Node card ---- */
+.node {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: 13px 14px;
+  box-shadow: var(--shadow-sm);
+  display: flex; flex-direction: column; gap: 4px;
+  min-height: 0;
+}
+.node .ico {
+  width: 30px; height: 30px; border-radius: var(--radius-md);
+  display: grid; place-items: center; margin-bottom: 4px;
+  background: var(--primary-soft); color: var(--primary-text);
+}
+.node .ico svg, .node .ico i { width: 17px; height: 17px; }
+.node h3 { font-family: var(--font-sans); font-size: 13.5px; font-weight: 600; color: var(--text-strong); line-height: 1.2; letter-spacing: -0.01em; }
+.node p { font-size: 11.5px; color: var(--text-muted); line-height: 1.35; }
+.node .tag {
+  align-self: flex-start; margin-top: 2px;
+  font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+  color: var(--text-muted); background: var(--bg-inset);
+  border: 1px solid var(--border-subtle);
+  padding: 1px 6px; border-radius: var(--radius-sm);
+}
+.node--accent { border-color: var(--primary); box-shadow: var(--shadow-sm), 0 0 0 1px var(--primary); }
+.node--accent .ico { background: var(--primary); color: #fff; }
+.node--secure { background: #11243f; border-color: #2f6fdb; }
+.node--secure h3 { color: #eaf2ff; }
+.node--secure p { color: #9bb6e0; }
+.node--secure .ico { background: #2f6fdb; color: #fff; }
+.node--secure .tag { background: #0c1c33; border-color: #234a82; color: #9bb6e0; }
+
+/* db cylinder accent */
+.node--db .ico { background: var(--secondary-soft); color: var(--secondary-text); }
+
+/* ---- Connectors between bands ---- */
+.flow { display: flex; flex-direction: column; align-items: center; gap: 0; padding: 6px 0; }
+.flow .stem { width: 2px; height: 14px; background: var(--border-strong); }
+.flow .proto {
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-default);
+  background: var(--bg-surface); border: 1px solid var(--border-default);
+  padding: 5px 14px; border-radius: var(--radius-pill); box-shadow: var(--shadow-xs);
+  display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
+}
+.flow .proto svg, .flow .proto i { width: 13px; height: 13px; color: var(--primary); }
+.flow .arrow { width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 7px solid var(--border-strong); }
+
+/* legend */
+.legend { display: flex; flex-wrap: wrap; gap: 16px 22px; margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--border-subtle); }
+.legend .item { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--text-muted); }
+.legend .key { width: 26px; height: 14px; border-radius: 4px; flex-shrink: 0; box-shadow: var(--inset-hairline); }
+.legend b { color: var(--text-strong); font-weight: 600; }

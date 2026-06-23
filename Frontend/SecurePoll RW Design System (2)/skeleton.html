@@ -1,0 +1,81 @@
+<!-- @dsCard group="Components" viewport="900x560" name="Skeleton loaders" subtitle="Shimmer placeholders for data-loading states" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SecurePoll RW — Skeleton loaders</title>
+<link rel="stylesheet" href="./styles.css">
+<style>
+  html,body{ margin:0; }
+  .wrap{ min-height:100vh; background:var(--bg-canvas); font-family:var(--font-sans); padding:34px; box-sizing:border-box; }
+  .grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:18px; max-width:840px; }
+  .card{ background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:var(--radius-xl); box-shadow:var(--shadow-sm); padding:18px; }
+  .card h3{ font-family:var(--font-display); font-size:13px; font-weight:600; color:var(--text-muted); margin:0 0 14px; text-transform:uppercase; letter-spacing:.05em; }
+  .full{ grid-column:1 / -1; }
+  .skrow{ display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:13px; padding:11px 0; border-bottom:1px solid var(--border-subtle); }
+  .skrow:last-child{ border-bottom:none; }
+  .lead{ font-family:var(--font-display); font-size:22px; font-weight:600; color:var(--text-strong); margin:0 0 4px; }
+  .sub{ font-size:14px; color:var(--text-muted); margin:0 0 24px; }
+  .toolbar{ display:flex; gap:10px; margin-bottom:18px; }
+  .btn{ font-family:var(--font-sans); font-size:13px; font-weight:600; border-radius:var(--radius-md); padding:9px 15px; cursor:pointer; border:1px solid var(--border-default); background:var(--bg-surface); color:var(--text-default); }
+  .btn.pri{ background:var(--primary); border-color:var(--primary); color:#fff; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 class="lead">Skeleton loaders</h1>
+  <p class="sub">Drop-in shimmer placeholders that mirror the shape of the content they replace. Toggle to compare loading vs. loaded.</p>
+  <div class="toolbar">
+    <button class="btn pri" id="toggle">Show loaded state</button>
+  </div>
+  <div class="grid" id="grid">
+    <!-- KPI skeleton -->
+    <div class="card">
+      <h3>KPI tile</h3>
+      <div class="sk-row" style="--g:10px;"><div class="sk sk-line w-50"></div><div class="sk sk-circle" style="--sz:30px; margin-left:auto;"></div></div>
+      <div class="sk sk-block" style="--h:30px; width:60%; margin:12px 0 8px;"></div>
+      <div class="sk sk-line w-40"></div>
+    </div>
+    <!-- Avatar + text -->
+    <div class="card">
+      <h3>List item</h3>
+      <div class="sk-row"><div class="sk sk-circle" style="--sz:42px;"></div><div class="sk-grow sk-stack" style="--g:8px;"><div class="sk sk-line w-70"></div><div class="sk sk-line w-40"></div></div></div>
+    </div>
+    <!-- Chips -->
+    <div class="card">
+      <h3>Badges</h3>
+      <div class="sk-stack" style="--g:12px;">
+        <div class="sk sk-title"></div>
+        <div class="sk-row" style="--g:8px;"><div class="sk sk-chip"></div><div class="sk sk-chip" style="width:54px;"></div><div class="sk sk-chip" style="width:88px;"></div></div>
+      </div>
+    </div>
+    <!-- Table skeleton -->
+    <div class="card full">
+      <h3>Table rows</h3>
+      <div id="rows"></div>
+    </div>
+  </div>
+</div>
+<script>
+  var rows = document.getElementById('rows');
+  for (var i = 0; i < 4; i++) {
+    var r = document.createElement('div');
+    r.className = 'skrow';
+    r.innerHTML = '<div class="sk sk-circle" style="--sz:34px;"></div>' +
+      '<div class="sk-stack" style="--g:7px;"><div class="sk sk-line w-50"></div><div class="sk sk-line w-30"></div></div>' +
+      '<div class="sk sk-chip"></div>';
+    rows.appendChild(r);
+  }
+  var loaded = false;
+  document.getElementById('toggle').addEventListener('click', function () {
+    loaded = !loaded;
+    this.textContent = loaded ? 'Show loading state' : 'Show loaded state';
+    document.querySelectorAll('#grid .sk').forEach(function (s) {
+      s.style.background = loaded ? 'transparent' : '';
+      s.classList.toggle('sk', !loaded);
+    });
+  });
+</script>
+</body>
+</html>

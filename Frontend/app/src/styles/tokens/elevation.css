@@ -1,0 +1,53 @@
+/* ============================================================
+   SecurePoll RW — Elevation, Radii, Borders
+   Soft civic shadows (low spread, cool tint). Restrained rounding.
+   ============================================================ */
+
+:root {
+  /* ---- Corner radii ---- */
+  --radius-xs:   3px;
+  --radius-sm:   5px;
+  --radius-md:   8px;    /* default control / card inner */
+  --radius-lg:   12px;   /* cards */
+  --radius-xl:   16px;   /* panels, modals */
+  --radius-2xl:  22px;   /* hero containers */
+  --radius-pill: 999px;
+  --radius-card: var(--radius-lg);
+
+  /* ---- Border widths ---- */
+  --bw-hair:   1px;
+  --bw-thin:   1.5px;
+  --bw-thick:  2px;
+  --bw-accent: 3px;   /* status accents (left edge / underline) */
+
+  /* ---- Shadows (cool slate tint, civic-soft) ---- */
+  --shadow-xs: 0 1px 2px rgba(13, 18, 26, 0.06);
+  --shadow-sm: 0 1px 2px rgba(13, 18, 26, 0.06),
+               0 1px 3px rgba(13, 18, 26, 0.08);
+  --shadow-md: 0 2px 4px rgba(13, 18, 26, 0.06),
+               0 4px 12px rgba(13, 18, 26, 0.08);
+  --shadow-lg: 0 4px 8px rgba(13, 18, 26, 0.06),
+               0 12px 28px rgba(13, 18, 26, 0.12);
+  --shadow-xl: 0 8px 16px rgba(13, 18, 26, 0.08),
+               0 24px 56px rgba(13, 18, 26, 0.16);
+
+  /* glow for active/verified states */
+  --glow-approved: 0 0 0 4px color-mix(in oklab, var(--green-500) 18%, transparent);
+  --glow-rejected: 0 0 0 4px color-mix(in oklab, var(--red-500) 18%, transparent);
+  --glow-review:   0 0 0 4px color-mix(in oklab, var(--amber-400) 20%, transparent);
+
+  /* focus ring */
+  --focus-ring: 0 0 0 3px var(--ring);
+
+  /* inset hairline used on surfaces */
+  --inset-hairline: inset 0 0 0 1px var(--border-subtle);
+}
+
+[data-theme="dark"] {
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.5),
+               0 6px 16px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.55);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.6);
+}

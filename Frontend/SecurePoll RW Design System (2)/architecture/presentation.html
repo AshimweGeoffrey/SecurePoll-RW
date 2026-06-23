@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SecurePoll RW — Architecture &amp; Data Flow</title>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="diagram.css">
+<template id="__bundler_thumbnail" data-bg-color="#0f7740">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#0f7740"/>
+    <path d="M600 210 L760 265 V410 C760 510 690 575 600 612 C510 575 440 510 440 410 V265 Z" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" stroke-width="6"/>
+    <path d="M520 408 L578 466 L690 345" fill="none" stroke="#ffffff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+</template>
+<style>
+  html,body { margin:0; background:var(--bg-canvas); }
+  .sp-topbar{
+    position:sticky; top:0; z-index:50; display:flex; align-items:center; gap:18px;
+    padding:12px 28px; background:color-mix(in oklab, var(--bg-surface) 88%, transparent);
+    backdrop-filter:saturate(1.4) blur(10px); -webkit-backdrop-filter:saturate(1.4) blur(10px);
+    border-bottom:1px solid var(--border-subtle); font-family:var(--font-sans);
+  }
+  .sp-topbar img{ height:30px; }
+  .sp-topbar .brand{ font-family:var(--font-display); font-weight:600; font-size:16px; color:var(--text-strong); letter-spacing:-0.01em; }
+  .sp-topbar .brand small{ display:block; font-family:var(--font-sans); font-weight:700; font-size:9px; letter-spacing:0.08em; text-transform:uppercase; color:var(--primary-text); }
+  .sp-topbar nav{ margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; }
+  .sp-topbar nav a{
+    font-size:12px; font-weight:600; color:var(--text-muted); text-decoration:none;
+    padding:6px 12px; border-radius:var(--radius-pill); border:1px solid transparent; transition:var(--transition-control);
+  }
+  .sp-topbar nav a:hover{ color:var(--text-strong); background:var(--bg-subtle); }
+  .slide{ scroll-margin-top:64px; }
+  .slide + .slide{ border-top:1px solid var(--border-subtle); }
+  @media print {
+    .sp-topbar{ display:none; }
+    .slide{ break-after:page; border-top:none; }
+  }
+#d1 .canvas { width: 1340px; margin: 0 auto; }
+#d1 .stack { display: flex; flex-direction: column; }
+#d1 .gw { background: var(--bg-surface); border: 1px solid var(--primary-soft-border); border-radius: var(--radius-md); padding: 10px 12px; font-size: 12px; font-weight: 600; color: var(--text-strong); line-height: 1.3; box-shadow: var(--shadow-xs); display:flex; align-items:center; }
+#d2 .canvas { width: 1340px; margin: 0 auto; }
+#d2 .pipe { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0; align-items: stretch; }
+#d2 .step { position: relative; padding: 0 9px; }
+#d2 .step:not(:last-child)::after { content: ""; position: absolute; top: 34px; right: -7px; width: 14px; height: 2px; background: var(--border-strong); z-index: 2; }
+#d2 .step:not(:last-child)::before { content: ""; position: absolute; top: 30px; right: -10px; z-index: 3;
+    border-left: 7px solid var(--border-strong); border-top: 5px solid transparent; border-bottom: 5px solid transparent; }
+#d2 .step-card { background: var(--bg-surface); border: 1px solid var(--border-default); border-radius: var(--radius-lg); padding: 14px; box-shadow: var(--shadow-sm); height: 100%; display:flex; flex-direction:column; gap:7px; }
+#d2 .step-num { position:absolute; top:-9px; left:18px; width:24px;height:24px;border-radius:50%; background:var(--text-strong); color:#fff; font-family:var(--font-mono); font-size:12px; font-weight:700; display:grid; place-items:center; z-index:4; box-shadow: var(--shadow-sm); }
+#d2 .step-card .ico { width:34px;height:34px;border-radius:var(--radius-md); background:var(--primary-soft); color:var(--primary-text); display:grid; place-items:center; }
+#d2 .step-card .ico i { width:19px;height:19px; }
+#d2 .step-card h3 { font-size:13.5px; font-weight:600; color:var(--text-strong); line-height:1.25; }
+#d2 .step-card .svc { font-family:var(--font-mono); font-size:10px; color:var(--secondary-text); background:var(--secondary-soft); padding:2px 7px; border-radius:var(--radius-sm); align-self:flex-start; }
+#d2 .step-card .lat { font-size:10.5px; color:var(--text-muted); margin-top:auto; }
+#d2 .gate { display:grid; grid-template-columns: 320px 1fr; gap: 22px; align-items: stretch; }
+#d2 .xai { background:var(--bg-surface); border:1px solid var(--border-default); border-radius:var(--radius-xl); padding:18px 20px; box-shadow: var(--shadow-md); }
+#d2 .xai .lbl { font-size:11px; font-weight:700; letter-spacing:var(--ls-caps); text-transform:uppercase; color:var(--text-muted); }
+#d2 .xai .big { font-family:var(--font-mono); font-size:46px; font-weight:700; color:var(--status-approved-text); line-height:1; margin:6px 0 2px; }
+#d2 .xai .big small { font-size:16px; color:var(--text-muted); font-weight:500; }
+#d2 .meter { height:10px; border-radius:var(--radius-pill); background:var(--bg-inset); overflow:hidden; margin:10px 0 14px; position:relative; }
+#d2 .meter .fill { height:100%; width:91%; background:linear-gradient(90deg, var(--green-400), var(--green-600)); border-radius:var(--radius-pill); }
+#d2 .meter .thr { position:absolute; top:-3px; bottom:-3px; left:80%; width:2px; background:var(--text-strong); }
+#d2 .bd { display:flex; justify-content:space-between; font-size:12px; padding:5px 0; border-bottom:1px solid var(--border-subtle); }
+#d2 .bd:last-child { border-bottom:none; }
+#d2 .bd span:first-child { color:var(--text-muted); }
+#d2 .bd span:last-child { font-family:var(--font-mono); font-weight:600; color:var(--text-strong); }
+#d2 .outcomes { display:grid; grid-template-rows: repeat(3, 1fr); gap:12px; }
+#d2 .oc { display:grid; grid-template-columns: 120px 1fr auto; align-items:center; gap:16px; border-radius:var(--radius-lg); padding:14px 18px; border:1px solid; }
+#d2 .oc--ok { background:var(--status-approved-soft); border-color:var(--status-approved); }
+#d2 .oc--rv { background:var(--status-review-soft); border-color:var(--status-review); }
+#d2 .oc--no { background:var(--status-rejected-soft); border-color:var(--status-rejected); }
+#d2 .oc .range { font-family:var(--font-mono); font-size:15px; font-weight:700; }
+#d2 .oc--ok .range { color:var(--status-approved-text); }
+#d2 .oc--rv .range { color:var(--status-review-text); }
+#d2 .oc--no .range { color:var(--status-rejected-text); }
+#d2 .oc .verdict { font-family:var(--font-display); font-size:18px; font-weight:600; }
+#d2 .oc--ok .verdict { color:var(--status-approved-text); }
+#d2 .oc--rv .verdict { color:var(--status-review-text); }
+#d2 .oc--no .verdict { color:var(--status-rejected-text); }
+#d2 .oc .desc { font-size:12px; color:var(--text-default); }
+#d2 .oc .act { font-family:var(--font-mono); font-size:11px; color:var(--text-muted); text-align:right; }
+#d2 .rail { display:flex; gap:14px; margin-top:18px; }
+#d2 .rail .chip { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-default); background:var(--bg-surface); border:1px solid var(--border-default); border-radius:var(--radius-pill); padding:7px 14px; box-shadow:var(--shadow-xs); }
+#d2 .rail .chip i { width:14px;height:14px;color:var(--primary); }
+#d2 .rail .chip b { color:var(--text-strong); font-weight:600; }
+#d2 .sec-h { display:flex; align-items:baseline; gap:12px; margin:30px 0 26px; }
+#d2 .sec-h .n { font-family:var(--font-mono); font-size:13px; font-weight:700; color:var(--primary-text); }
+#d2 .sec-h h2 { font-family:var(--font-display); font-size:20px; font-weight:600; color:var(--text-strong); }
+#d2 .sec-h .hint { font-size:12px; color:var(--text-muted); margin-left:auto; }
+#d3 .canvas { width: 1340px; margin: 0 auto; }
+#d3 .hub { display:grid; grid-template-columns: 1fr 1.1fr 1fr; gap: 26px; align-items:center; }
+#d3 .col-h { font-size:11px; font-weight:700; letter-spacing:var(--ls-caps); text-transform:uppercase; color:var(--text-muted); margin-bottom:12px; }
+#d3 .svc-list { display:flex; flex-direction:column; gap:9px; }
+#d3 .svc { display:flex; align-items:center; gap:10px; background:var(--bg-surface); border:1px solid var(--border-default); border-radius:var(--radius-md); padding:9px 13px; box-shadow:var(--shadow-xs); font-size:13px; font-weight:600; color:var(--text-strong); }
+#d3 .svc i { width:15px;height:15px;color:var(--primary-text); }
+#d3 .svc.sub i { color:var(--secondary-text); }
+#d3 .exchange { background: var(--band-secure); border-radius: var(--radius-2xl); padding: 22px; box-shadow: var(--shadow-lg); position:relative; }
+#d3 .exchange::before, #d3 .exchange::after { content:""; position:absolute; top:50%; width:24px; height:2px; background:var(--border-strong); }
+#d3 .exchange::before { left:-26px; }
+#d3 .exchange::after { right:-26px; }
+#d3 .exchange .x-h { display:flex; align-items:center; gap:10px; margin-bottom:4px; }
+#d3 .exchange .x-h i { width:20px;height:20px;color:#7fb0ff; }
+#d3 .exchange .x-h h3 { font-family:var(--font-mono); font-size:16px; font-weight:700; color:#fff; }
+#d3 .exchange .x-sub { font-size:11.5px; color:#9bb6e0; margin-bottom:14px; }
+#d3 .keys { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+#d3 .key-pill { font-family:var(--font-mono); font-size:11.5px; color:#dbe7ff; background:#0c1c33; border:1px solid #234a82; border-radius:var(--radius-sm); padding:6px 10px; }
+#d3 .table { margin-top:34px; border:1px solid var(--border-subtle); border-radius:var(--radius-xl); overflow:hidden; }
+#d3 .trow { display:grid; grid-template-columns: 230px 230px 1fr; gap:16px; padding:13px 20px; align-items:center; background:var(--bg-surface); }
+#d3 .trow + .trow { border-top:1px solid var(--border-subtle); }
+#d3 .trow.head { background:var(--bg-inset); font-size:11px; font-weight:700; letter-spacing:var(--ls-caps); text-transform:uppercase; color:var(--text-muted); }
+#d3 .rk { font-family:var(--font-mono); font-size:13px; font-weight:600; color:var(--primary-text); }
+#d3 .pub { font-size:13px; color:var(--text-default); }
+#d3 .subs { display:flex; flex-wrap:wrap; gap:6px; }
+#d3 .schip { font-size:11.5px; font-weight:500; color:var(--secondary-text); background:var(--secondary-soft); border:1px solid var(--primary-soft-border); border-radius:var(--radius-pill); padding:2px 10px; }
+#d3 .schip.warn { color:var(--status-review-text); background:var(--status-review-soft); border-color:var(--status-review); }
+#d4 .canvas { width: 1340px; margin: 0 auto; }
+#d4 .dc { border:1.5px solid var(--border-default); border-radius:var(--radius-2xl); padding:30px 24px 24px; position:relative; background:var(--bg-surface); box-shadow:var(--shadow-sm); }
+#d4 .dc-label { position:absolute; top:-12px; left:24px; background:var(--bg-canvas); padding:0 12px; font-family:var(--font-display); font-size:15px; font-weight:600; color:var(--text-strong); }
+#d4 .zones { display:grid; grid-template-columns: 0.95fr 1.35fr 0.95fr; gap:18px; }
+#d4 .zone { border:1px dashed var(--border-strong); border-radius:var(--radius-xl); padding:16px; background:var(--bg-canvas); }
+#d4 .zone--secure { border:1.5px solid #2f6fdb; background:var(--band-secure); }
+#d4 .zone-h { display:flex; align-items:center; gap:9px; margin-bottom:14px; }
+#d4 .zone-h i { width:17px;height:17px; }
+#d4 .zone-h .zt { font-size:12px; font-weight:700; letter-spacing:var(--ls-caps); text-transform:uppercase; }
+#d4 .zone .zt { color:var(--text-strong); }
+#d4 .zone--secure .zt { color:#cfe0fb; }
+#d4 .zone-h .sub { font-size:10.5px; color:var(--text-muted); margin-left:auto; }
+#d4 .zone--secure .sub { color:#7fa3d6; }
+#d4 .znode { display:flex; align-items:center; gap:10px; background:var(--bg-surface); border:1px solid var(--border-default); border-radius:var(--radius-md); padding:9px 12px; box-shadow:var(--shadow-xs); margin-bottom:8px; }
+#d4 .znode:last-child { margin-bottom:0; }
+#d4 .znode i { width:15px;height:15px;color:var(--primary-text); flex-shrink:0; }
+#d4 .znode .nm { font-size:12.5px; font-weight:600; color:var(--text-strong); }
+#d4 .znode .dt { font-size:10.5px; color:var(--text-muted); }
+#d4 .znode.flow-in { border-left:3px solid var(--primary); }
+#d4 .zone--secure .znode { background:#11243f; border-color:#234a82; }
+#d4 .zone--secure .znode i { color:#7fb0ff; }
+#d4 .zone--secure .znode .nm { color:#eaf2ff; }
+#d4 .zone--secure .zone .dt, #d4 .zone--secure .znode .dt { color:#9bb6e0; }
+#d4 .chain { display:flex; align-items:center; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+#d4 .chain .lk { font-family:var(--font-mono); font-size:11px; font-weight:600; color:var(--text-strong); background:var(--bg-inset); border:1px solid var(--border-default); border-radius:var(--radius-sm); padding:4px 9px; }
+#d4 .chain .gt { color:var(--text-subtle); }
+#d4 .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+#d4 .edge { margin-top:0; }
+#d4 .edge .znode { margin-bottom:0; }
+#d5 .canvas { width: 1340px; margin: 0 auto; }
+#d5 .stages { display:grid; grid-template-columns: 1fr 1.25fr 1fr; gap:20px; align-items:stretch; position:relative; }
+#d5 .stage { border:1px solid var(--border-default); border-radius:var(--radius-xl); background:var(--bg-surface); box-shadow:var(--shadow-sm); padding:18px 18px 20px; display:flex; flex-direction:column; }
+#d5 .stage--off { background:var(--band-secure); border-color:#2f6fdb; }
+#d5 .stage-h { display:flex; align-items:center; gap:10px; margin-bottom:4px; }
+#d5 .stage-h .badge { width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#fff;background:var(--text-strong); }
+#d5 .stage-h h3 { font-family:var(--font-display); font-size:16px; font-weight:600; color:var(--text-strong); }
+#d5 .stage--off .stage-h h3 { color:#fff; }
+#d5 .stage--off .stage-h .badge { background:#2f6fdb; }
+#d5 .stage .when { font-size:11px; font-weight:600; letter-spacing:var(--ls-caps); text-transform:uppercase; color:var(--text-muted); margin-bottom:16px; }
+#d5 .stage--off .when { color:#9bb6e0; }
+#d5 .item { display:flex; gap:11px; align-items:flex-start; padding:9px 0; border-bottom:1px solid var(--border-subtle); }
+#d5 .item:last-child { border-bottom:none; }
+#d5 .stage--off .item { border-color:#234a82; }
+#d5 .item i { width:16px;height:16px;color:var(--primary-text);margin-top:1px;flex-shrink:0; }
+#d5 .stage--off .item i { color:#7fb0ff; }
+#d5 .item .nm { font-size:13px; font-weight:600; color:var(--text-strong); }
+#d5 .stage--off .item .nm { color:#eaf2ff; }
+#d5 .item .dt { font-size:11.5px; color:var(--text-muted); line-height:1.4; }
+#d5 .stage--off .item .dt { color:#9bb6e0; }
+#d5 .store { margin-top:14px; background:#0c1c33; border:1px solid #234a82; border-radius:var(--radius-md); padding:12px; }
+#d5 .store .sh { font-family:var(--font-mono); font-size:11px; color:#7fb0ff; margin-bottom:8px; display:flex; align-items:center; gap:7px; }
+#d5 .store .sh i { width:13px;height:13px; }
+#d5 .store .srow { display:flex; align-items:center; gap:8px; font-size:11.5px; color:#dbe7ff; padding:4px 0; }
+#d5 .store .srow .k { width:7px;height:7px;border-radius:50%;background:#2f6fdb; }
+#d5 .store .srow b { color:#fff; font-weight:600; }
+#d5 .store .srow .hot { background:var(--status-review); }
+#d5 .conn { position:absolute; top:46%; width:30px; z-index:5; display:flex; flex-direction:column; align-items:center; }
+#d5 .conn .lbl { font-family:var(--font-mono); font-size:10px; color:var(--text-muted); background:var(--bg-canvas); padding:2px 4px; white-space:nowrap; margin-bottom:4px; }
+#d5 .conn .ar { color:var(--border-strong); }
+#d5 .c1 { left:calc(33% - 7px); }
+#d5 .c2 { left:calc(66% - 1px); }
+#d5 .note { margin-top:22px; display:flex; gap:14px; align-items:center; background:var(--status-review-soft); border:1px solid var(--status-review); border-radius:var(--radius-lg); padding:14px 18px; }
+#d5 .note i { width:20px;height:20px;color:var(--status-review-text);flex-shrink:0; }
+#d5 .note .nt { font-size:13px; color:var(--text-default); }
+#d5 .note .nt b { color:var(--status-review-text); font-weight:700; }
+</style>
+</head>
+<body>
+  <header class="sp-topbar">
+    <img src="../assets/mark.svg" alt="">
+    <div class="brand"><small>NEC Rwanda</small>SecurePoll RW · Architecture</div>
+    <nav>
+        <a href="#d1">01 · System</a>
+        <a href="#d2">02 · Verification</a>
+        <a href="#d3">03 · Event Bus</a>
+        <a href="#d4">04 · Security</a>
+        <a href="#d5">05 · Offline</a>
+    </nav>
+  </header>
+
+<section class="slide" id="d1">
+<div class="arch">
+  <div class="canvas">
+    <div class="arch-head">
+      <div class="ttl">
+        <img class="mark" src="../assets/mark.svg" alt="">
+        <div>
+          <div class="eyebrow">SecurePoll RW · NEC Rwanda</div>
+          <h1>System Architecture</h1>
+        </div>
+      </div>
+      <div class="meta"><b>Microservices platform</b><br>Pre-election &amp; election-day · 5 roles<br>HTTPS · JWT · mTLS · TLS 1.3</div>
+    </div>
+
+    <div class="stack">
+      <!-- CLIENT LAYER -->
+      <div class="band band--client">
+        <span class="band-label">Client Layer</span>
+        <span class="band-note">React · React Native · offline-first</span>
+        <div class="node-grid cols-4">
+          <div class="node">
+            <div class="ico"><i data-lucide="clipboard-pen-line"></i></div>
+            <h3>Registration App</h3>
+            <p>Voter enrollment, biometric capture, field ops</p>
+            <span class="tag">RN · Web · offline</span>
+          </div>
+          <div class="node">
+            <div class="ico"><i data-lucide="scan-face"></i></div>
+            <h3>Polling Station App</h3>
+            <p>Election-day verification kiosk / tablet</p>
+            <span class="tag">RN · kiosk · offline</span>
+          </div>
+          <div class="node">
+            <div class="ico"><i data-lucide="layout-dashboard"></i></div>
+            <h3>Admin &amp; Audit Web</h3>
+            <p>Fraud, registry, audit, reporting, IAM</p>
+            <span class="tag">React · online</span>
+          </div>
+          <div class="node">
+            <div class="ico"><i data-lucide="globe"></i></div>
+            <h3>Public Portal</h3>
+            <p>Status lookup, turnout, observer access</p>
+            <span class="tag">React · read-only</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow">
+        <div class="stem"></div>
+        <div class="proto"><i data-lucide="lock"></i> HTTPS + JWT · TLS 1.3 · mTLS for terminals</div>
+        <div class="arrow"></div>
+      </div>
+
+      <!-- API GATEWAY -->
+      <div class="band band--gateway">
+        <span class="band-label">API Gateway</span>
+        <span class="band-note">NGINX + middleware</span>
+        <div class="node-grid cols-6" style="gap:10px">
+          <div class="node" style="box-shadow:none;background:transparent;border:none;padding:8px 4px"><h3 style="font-size:14px">Single entry point</h3><p>All client traffic terminates here</p></div>
+          <div class="gw">JWT validation<br>&amp; refresh</div>
+          <div class="gw">Rate limiting<br>per terminal / IP</div>
+          <div class="gw">mTLS enforce<br>polling terminals</div>
+          <div class="gw">Request routing<br>to services</div>
+          <div class="gw">Logging<br>middleware</div>
+        </div>
+      </div>
+
+      <div class="flow">
+        <div class="stem"></div>
+        <div class="proto"><i data-lucide="git-fork"></i> Internal REST + RabbitMQ events</div>
+        <div class="arrow"></div>
+      </div>
+
+      <!-- BACKEND MICROSERVICES -->
+      <div class="band">
+        <span class="band-label">Backend Microservices</span>
+        <span class="band-note">Python · FastAPI · Node (Auth, Public API)</span>
+        <div class="node-grid cols-4">
+          <div class="node"><div class="ico"><i data-lucide="key-round"></i></div><h3>Auth Service (IAM)</h3><p>JWT, MFA, 5 roles, geo-scoped tokens</p><span class="tag">Node · Express</span></div>
+          <div class="node"><div class="ico"><i data-lucide="users"></i></div><h3>Voter Registry</h3><p>Source of truth · row-lock anti-double-vote</p><span class="tag">FastAPI</span></div>
+          <div class="node node--secure"><div class="ico"><i data-lucide="fingerprint"></i></div><h3>Biometric Service</h3><p>Encrypted templates · HSM keys · isolated</p><span class="tag">AES-256 · mTLS</span></div>
+          <div class="node node--accent"><div class="ico"><i data-lucide="cpu"></i></div><h3>AI / ML Service</h3><p>Matching · liveness · fraud · explainable</p><span class="tag">★ thesis core</span></div>
+
+          <div class="node"><div class="ico"><i data-lucide="user-plus"></i></div><h3>Registration Service</h3><p>Enrollment orchestration · offline sync</p><span class="tag">FastAPI</span></div>
+          <div class="node"><div class="ico"><i data-lucide="badge-check"></i></div><h3>Verification Service</h3><p>Election-day check-in · &lt;500ms target</p><span class="tag">high-throughput</span></div>
+          <div class="node"><div class="ico"><i data-lucide="activity"></i></div><h3>Election Ops</h3><p>Turnout, queue, incidents · Redis aggregates</p><span class="tag">FastAPI · Redis</span></div>
+          <div class="node"><div class="ico"><i data-lucide="file-check-2"></i></div><h3>Audit Service</h3><p>Append-only · cryptographic hash chain</p><span class="tag">tamper-evident</span></div>
+
+          <div class="node"><div class="ico"><i data-lucide="bar-chart-3"></i></div><h3>Reporting &amp; Analytics</h3><p>KPIs, turnout, predictive · read replica</p><span class="tag">Pandas</span></div>
+          <div class="node"><div class="ico"><i data-lucide="bell"></i></div><h3>Notification</h3><p>Async alerts · fraud, duplicate, escalation</p><span class="tag">RabbitMQ consumer</span></div>
+          <div class="node"><div class="ico"><i data-lucide="share-2"></i></div><h3>Public API</h3><p>Anonymized aggregates · rate-limited</p><span class="tag">Node · public</span></div>
+          <div class="node" style="background:var(--bg-inset);border-style:dashed;box-shadow:none"><div class="ico" style="background:transparent;color:var(--text-muted)"><i data-lucide="radio-tower"></i></div><h3 style="color:var(--text-default)">Inter-service</h3><p>JWT validate · USER_DEACTIVATED · audit before return</p></div>
+        </div>
+      </div>
+
+      <div class="flow">
+        <div class="stem"></div>
+        <div class="proto"><i data-lucide="database"></i> DB connections + Message Bus (RabbitMQ)</div>
+        <div class="arrow"></div>
+      </div>
+
+      <!-- DATA LAYER -->
+      <div class="band band--data">
+        <span class="band-label">Data Layer</span>
+        <span class="band-note">PostgreSQL · Redis · MinIO</span>
+        <div class="node-grid cols-3">
+          <div class="node node--db"><div class="ico"><i data-lucide="database"></i></div><h3>Voter DB</h3><p>Main registry, status, version history</p><span class="tag">PostgreSQL · primary</span></div>
+          <div class="node node--secure"><div class="ico"><i data-lucide="database"></i></div><h3>Biometric DB</h3><p>Feature vectors only · isolated subnet</p><span class="tag">AES-256 · HSM</span></div>
+          <div class="node node--db"><div class="ico"><i data-lucide="file-lock-2"></i></div><h3>Audit DB</h3><p>Append-only, tamper-evident chain</p><span class="tag">no DELETE/UPDATE</span></div>
+          <div class="node node--db"><div class="ico"><i data-lucide="zap"></i></div><h3>Redis Cache</h3><p>Sessions, turnout counters, offline pre-cache</p><span class="tag">in-memory</span></div>
+          <div class="node node--db"><div class="ico"><i data-lucide="database-backup"></i></div><h3>Analytics Replica</h3><p>Read-only, anonymized reporting views</p><span class="tag">read replica</span></div>
+          <div class="node node--db"><div class="ico"><i data-lucide="hard-drive"></i></div><h3>Object Storage</h3><p>ID document images · auto-purge after enroll</p><span class="tag">MinIO · S3</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <div class="item"><span class="key" style="background:var(--band-client)"></span><b>Client</b> · React / React Native surfaces</div>
+      <div class="item"><span class="key" style="background:var(--primary)"></span><b>Accent</b> · AI/ML core thesis contribution</div>
+      <div class="item"><span class="key" style="background:#11243f"></span><b>Isolated zone</b> · biometric data, mTLS + HSM only</div>
+      <div class="item"><span class="key" style="background:var(--band-data)"></span><b>Data</b> · PostgreSQL · Redis · MinIO</div>
+    </div>
+  </div>
+</div>
+</section>
+
+<section class="slide" id="d2">
+<div class="arch">
+  <div class="canvas">
+    <div class="arch-head">
+      <div class="ttl">
+        <img class="mark" src="../assets/mark.svg" alt="">
+        <div>
+          <div class="eyebrow">SecurePoll RW · Election Day</div>
+          <h1>Voter Verification Flow</h1>
+        </div>
+      </div>
+      <div class="meta"><b>Target &lt; 500 ms</b><br>end-to-end at the polling station<br>face + fingerprint · multimodal</div>
+    </div>
+
+    <div class="sec-h"><span class="n">A</span><h2>The check-in pipeline</h2><span class="hint">Voter presents QR card → ballot granted</span></div>
+
+    <div class="pipe">
+      <div class="step"><span class="step-num">1</span><div class="step-card"><div class="ico"><i data-lucide="qr-code"></i></div><h3>Scan voter ID</h3><span class="svc">Polling App</span><span class="lat">QR · NFC · barcode</span></div></div>
+      <div class="step"><span class="step-num">2</span><div class="step-card"><div class="ico"><i data-lucide="user-check"></i></div><h3>Eligibility lookup</h3><span class="svc">Voter Registry</span><span class="lat">registered · not voted · station</span></div></div>
+      <div class="step"><span class="step-num">3</span><div class="step-card"><div class="ico"><i data-lucide="scan-eye"></i></div><h3>Liveness check</h3><span class="svc">AI Service</span><span class="lat">passive CNN · LIVE/SPOOF</span></div></div>
+      <div class="step"><span class="step-num">4</span><div class="step-card"><div class="ico"><i data-lucide="scan-face"></i></div><h3>1:1 face match</h3><span class="svc">AI ← Biometric DB</span><span class="lat">ArcFace · cosine</span></div></div>
+      <div class="step"><span class="step-num">5</span><div class="step-card"><div class="ico"><i data-lucide="fingerprint"></i></div><h3>Fingerprint match</h3><span class="svc">AI Service</span><span class="lat">optional · minutiae</span></div></div>
+      <div class="step"><span class="step-num">6</span><div class="step-card"><div class="ico"><i data-lucide="sigma"></i></div><h3>Fused score</h3><span class="svc">AI Service</span><span class="lat">face 60% · print 40%</span></div></div>
+    </div>
+
+    <div class="rail">
+      <div class="chip"><i data-lucide="file-check-2"></i><b>Audit Service</b> logs every step (hash-chained)</div>
+      <div class="chip"><i data-lucide="lock"></i> Templates fetched over <b>mTLS</b>, never leave isolated zone</div>
+    </div>
+
+    <div class="sec-h"><span class="n">B</span><h2>The decision gate — Explainable AI</h2><span class="hint">Every decision ships a confidence, a breakdown and a plain-language reason</span></div>
+
+    <div class="gate">
+      <div class="xai">
+        <div class="lbl">Fused confidence</div>
+        <div class="big">0.91<small> / 1.00</small></div>
+        <div class="meter"><div class="fill"></div><div class="thr"></div></div>
+        <div class="bd"><span>Face match</span><span>0.94</span></div>
+        <div class="bd"><span>Fingerprint</span><span>0.87</span></div>
+        <div class="bd"><span>Liveness</span><span style="color:var(--status-approved-text)">LIVE</span></div>
+        <div class="bd"><span>Threshold</span><span>0.80</span></div>
+      </div>
+      <div class="outcomes">
+        <div class="oc oc--ok"><span class="range">≥ 0.80</span><div><div class="verdict">APPROVED</div><div class="desc">Auto-pass · Voter Registry marks VOTED (row-locked) · VOTER_VOTED → Election Ops</div></div><span class="act">green screen<br>grant ballot</span></div>
+        <div class="oc oc--rv"><span class="range">0.60–0.79</span><div><div class="verdict">MANUAL REVIEW</div><div class="desc">Officer sees the breakdown &amp; explanation, decides with a logged justification</div></div><span class="act">officer<br>decision</span></div>
+        <div class="oc oc--no"><span class="range">&lt; 0.60</span><div><div class="verdict">REJECTED</div><div class="desc">Logged · supervisor alerted · VERIFICATION_FAILED event if repeated</div></div><span class="act">supervisor<br>alerted</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<section class="slide" id="d3">
+<div class="arch">
+  <div class="canvas">
+    <div class="arch-head">
+      <div class="ttl">
+        <img class="mark" src="../assets/mark.svg" alt="">
+        <div>
+          <div class="eyebrow">SecurePoll RW · Async Messaging</div>
+          <h1>Event Bus &amp; Messaging</h1>
+        </div>
+      </div>
+      <div class="meta"><b>RabbitMQ</b> · topic exchange<br>reliable async delivery<br>audit writes are synchronous</div>
+    </div>
+
+    <div class="hub">
+      <div>
+        <div class="col-h">Publishers</div>
+        <div class="svc-list">
+          <div class="svc"><i data-lucide="users"></i>Voter Registry</div>
+          <div class="svc"><i data-lucide="user-plus"></i>Registration Service</div>
+          <div class="svc"><i data-lucide="cpu"></i>AI / ML Service</div>
+          <div class="svc"><i data-lucide="badge-check"></i>Verification Service</div>
+          <div class="svc"><i data-lucide="key-round"></i>Auth Service</div>
+        </div>
+      </div>
+
+      <div class="exchange">
+        <div class="x-h"><i data-lucide="radio-tower"></i><h3>securepoll.events</h3></div>
+        <div class="x-sub">topic exchange · routing keys</div>
+        <div class="keys">
+          <div class="key-pill">voter.registered</div>
+          <div class="key-pill">voter.voted</div>
+          <div class="key-pill">voter.blocked</div>
+          <div class="key-pill">fraud.alert</div>
+          <div class="key-pill">duplicate.detected</div>
+          <div class="key-pill">verification.failed</div>
+          <div class="key-pill">sync.completed</div>
+          <div class="key-pill">audit.log</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="col-h">Subscribers</div>
+        <div class="svc-list">
+          <div class="svc sub"><i data-lucide="bell"></i>Notification Service</div>
+          <div class="svc sub"><i data-lucide="file-check-2"></i>Audit Service</div>
+          <div class="svc sub"><i data-lucide="activity"></i>Election Ops</div>
+          <div class="svc sub"><i data-lucide="shield-alert"></i>Fraud pipeline</div>
+          <div class="svc sub"><i data-lucide="layout-dashboard"></i>Admin Dashboard</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="table">
+      <div class="trow head"><span>Routing key</span><span>Published by</span><span>Subscribers</span></div>
+      <div class="trow"><span class="rk">voter.registered</span><span class="pub">Voter Registry</span><div class="subs"><span class="schip">Fraud pipeline (1:N scan)</span><span class="schip">Audit</span></div></div>
+      <div class="trow"><span class="rk">voter.voted</span><span class="pub">Voter Registry</span><div class="subs"><span class="schip">Election Ops (turnout)</span><span class="schip">Audit</span></div></div>
+      <div class="trow"><span class="rk">fraud.alert</span><span class="pub">AI / ML Service</span><div class="subs"><span class="schip warn">Notification</span><span class="schip warn">Admin Dashboard</span></div></div>
+      <div class="trow"><span class="rk">duplicate.detected</span><span class="pub">AI / ML Service</span><div class="subs"><span class="schip warn">Notification</span><span class="schip warn">Registration (suspend)</span></div></div>
+      <div class="trow"><span class="rk">verification.failed</span><span class="pub">Verification Service</span><div class="subs"><span class="schip">Audit</span><span class="schip warn">Notification (if repeated)</span></div></div>
+      <div class="trow"><span class="rk">sync.completed</span><span class="pub">Verification / Reg.</span><div class="subs"><span class="schip">Election Ops</span><span class="schip">Notification</span></div></div>
+    </div>
+  </div>
+</div>
+</section>
+
+<section class="slide" id="d4">
+<div class="arch">
+  <div class="canvas">
+    <div class="arch-head">
+      <div class="ttl">
+        <img class="mark" src="../assets/mark.svg" alt="">
+        <div>
+          <div class="eyebrow">SecurePoll RW · Infrastructure</div>
+          <h1>Security Zones &amp; Deployment</h1>
+        </div>
+      </div>
+      <div class="meta"><b>Defense in depth</b><br>WAF · mTLS · network isolation<br>Rwanda Data Protection Law 058/2021</div>
+    </div>
+
+    <div class="chain">
+      <span class="lk">Internet</span><span class="gt">→</span>
+      <span class="lk">WAF</span><span class="gt">→</span>
+      <span class="lk">Load Balancer</span><span class="gt">→</span>
+      <span class="lk">API Gateway</span><span class="gt">→</span>
+      <span class="lk" style="color:var(--text-muted)">internal network · no direct DB access</span>
+    </div>
+
+    <div class="dc">
+      <span class="dc-label">NEC Data Center / Cloud</span>
+      <div class="zones">
+        <div class="zone">
+          <div class="zone-h"><i data-lucide="shield" style="color:var(--status-review-text)"></i><span class="zt">Public DMZ</span><span class="sub">internet-facing</span></div>
+          <div class="znode flow-in"><i data-lucide="shield-ban"></i><div><div class="nm">WAF</div><div class="dt">L7 filtering, OWASP rules</div></div></div>
+          <div class="znode"><i data-lucide="scale"></i><div><div class="nm">Load Balancer</div><div class="dt">TLS termination</div></div></div>
+          <div class="znode"><i data-lucide="route"></i><div><div class="nm">API Gateway</div><div class="dt">JWT · rate limit · mTLS</div></div></div>
+          <div class="znode"><i data-lucide="share-2"></i><div><div class="nm">Public API Svc</div><div class="dt">aggregates only</div></div></div>
+        </div>
+
+        <div class="zone">
+          <div class="zone-h"><i data-lucide="network" style="color:var(--primary-text)"></i><span class="zt">Internal Network</span><span class="sub">no inbound from internet</span></div>
+          <div class="grid2">
+            <div class="znode"><i data-lucide="boxes"></i><div><div class="nm">Microservices</div><div class="dt">Auth · Registry · Verify · Ops…</div></div></div>
+            <div class="znode"><i data-lucide="database"></i><div><div class="nm">Primary DBs</div><div class="dt">Voter · Audit · Analytics</div></div></div>
+            <div class="znode"><i data-lucide="zap"></i><div><div class="nm">Redis</div><div class="dt">cache · counters</div></div></div>
+            <div class="znode"><i data-lucide="radio-tower"></i><div><div class="nm">RabbitMQ</div><div class="dt">event bus</div></div></div>
+            <div class="znode"><i data-lucide="hard-drive"></i><div><div class="nm">Object Storage</div><div class="dt">MinIO · auto-purge</div></div></div>
+            <div class="znode"><i data-lucide="gauge"></i><div><div class="nm">Monitoring</div><div class="dt">Prometheus · Grafana</div></div></div>
+          </div>
+        </div>
+
+        <div class="zone zone--secure">
+          <div class="zone-h"><i data-lucide="lock" style="color:#7fb0ff"></i><span class="zt">Isolated Biometric Zone</span><span class="sub">separate subnet</span></div>
+          <div class="znode"><i data-lucide="fingerprint"></i><div><div class="nm">Biometric DB</div><div class="dt">AES-256 · templates only</div></div></div>
+          <div class="znode"><i data-lucide="cpu"></i><div><div class="nm">AI / ML Service</div><div class="dt">only service with access</div></div></div>
+          <div class="znode"><i data-lucide="key-square"></i><div><div class="nm">HSM</div><div class="dt">key mgmt · 6-mo rotation</div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow"><div class="stem"></div><div class="proto"><i data-lucide="lock"></i> HTTPS / mTLS · only registered terminals accepted</div><div class="arrow"></div></div>
+
+    <div class="dc" style="padding-top:30px">
+      <span class="dc-label">Polling Stations — thousands nationwide</span>
+      <div class="node-grid cols-5" style="grid-template-columns:repeat(5,1fr);gap:12px">
+        <div class="znode edge"><i data-lucide="tablet-smartphone"></i><div><div class="nm">Android tablet</div><div class="dt">React Native · kiosk</div></div></div>
+        <div class="znode edge"><i data-lucide="fingerprint"></i><div><div class="nm">USB reader</div><div class="dt">fingerprint</div></div></div>
+        <div class="znode edge"><i data-lucide="camera"></i><div><div class="nm">Camera</div><div class="dt">face capture</div></div></div>
+        <div class="znode edge"><i data-lucide="signal"></i><div><div class="nm">4G + satellite</div><div class="dt">critical-station backup</div></div></div>
+        <div class="znode edge"><i data-lucide="database"></i><div><div class="nm">Local SQLite</div><div class="dt">encrypted · offline</div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<section class="slide" id="d5">
+<div class="arch">
+  <div class="canvas">
+    <div class="arch-head">
+      <div class="ttl">
+        <img class="mark" src="../assets/mark.svg" alt="">
+        <div>
+          <div class="eyebrow">SecurePoll RW · Resilience</div>
+          <h1>Offline Sync Architecture</h1>
+        </div>
+      </div>
+      <div class="meta"><b>~4 hours</b> offline operation<br>per polling station<br>double-vote safe without network</div>
+    </div>
+
+    <div class="stages">
+      <div class="stage">
+        <div class="stage-h"><span class="badge">1</span><h3>Pre-load</h3></div>
+        <div class="when">Before election day</div>
+        <div class="item"><i data-lucide="zap"></i><div><div class="nm">Redis biometric pre-cache</div><div class="dt">Templates for the station's roster pushed from the server</div></div></div>
+        <div class="item"><i data-lucide="download"></i><div><div class="nm">Encrypted bundle → tablet</div><div class="dt">Written into local SQLite, AES-encrypted at rest</div></div></div>
+        <div class="item"><i data-lucide="check-check"></i><div><div class="nm">Integrity check</div><div class="dt">Station confirms roster &amp; cache before polls open</div></div></div>
+      </div>
+
+      <div class="stage stage--off">
+        <div class="stage-h"><span class="badge">2</span><h3>Offline operation</h3></div>
+        <div class="when">Network dropped</div>
+        <div class="item"><i data-lucide="scan-face"></i><div><div class="nm">Local verification</div><div class="dt">Face / fingerprint matched on-device against the cache</div></div></div>
+        <div class="item"><i data-lucide="shield-check"></i><div><div class="nm">Bloom filter = authority</div><div class="dt">Local "voted set" blocks double-voting until sync</div></div></div>
+        <div class="store">
+          <div class="sh"><i data-lucide="database"></i>Local SQLite (encrypted)</div>
+          <div class="srow"><span class="k"></span>Biometric cache <b>pre-loaded</b></div>
+          <div class="srow"><span class="k"></span>Verification queue <b>pending sync</b></div>
+          <div class="srow"><span class="k hot"></span>Voted bloom filter <b>double-vote lock</b></div>
+        </div>
+      </div>
+
+      <div class="stage">
+        <div class="stage-h"><span class="badge">3</span><h3>Reconnect &amp; reconcile</h3></div>
+        <div class="when">Network restored</div>
+        <div class="item"><i data-lucide="upload-cloud"></i><div><div class="nm">POST /verify/sync</div><div class="dt">Batch of queued verifications sent to Verification Service</div></div></div>
+        <div class="item"><i data-lucide="git-merge"></i><div><div class="nm">Server processes queue</div><div class="dt">Sequential apply · row-locked VOTED writes to Voter DB</div></div></div>
+        <div class="item"><i data-lucide="bell"></i><div><div class="nm">sync.completed</div><div class="dt">Election Ops + Notification updated; turnout reconciled</div></div></div>
+      </div>
+
+      <div class="conn c1"><span class="lbl">push cache</span><i class="ar" data-lucide="arrow-right"></i></div>
+      <div class="conn c2"><span class="lbl">on reconnect</span><i class="ar" data-lucide="arrow-right"></i></div>
+    </div>
+
+    <div class="note">
+      <i data-lucide="alert-triangle"></i>
+      <div class="nt">End-of-day <b>reconciliation</b> flags any station where the physical ballot count ≠ the system count — the offline bloom filter guarantees a voter can never be checked in twice, even with zero connectivity.</div>
+    </div>
+  </div>
+</div>
+</section>
+
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script>
+  function draw(){ if (window.lucide) lucide.createIcons(); }
+  draw(); window.addEventListener('load', draw);
+</script>
+</body>
+</html>

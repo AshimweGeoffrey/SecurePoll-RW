@@ -1,0 +1,37 @@
+<!-- @dsCard group="Spacing" viewport="700x180" name="Radii & Elevation" subtitle="Restrained rounding · cool civic-soft shadows" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { background: var(--bg-canvas); margin: 0; padding: 24px; font-family: var(--font-sans); }
+  .group { display:flex; gap: 18px; align-items:flex-end; }
+  .col { display:flex; gap: 16px; }
+  .box { width: 64px; height: 64px; background: var(--bg-surface); display:flex; align-items:flex-end; justify-content:center; padding-bottom:6px; }
+  .r { box-shadow: var(--inset-hairline); }
+  .tok { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }
+  .sep { width:1px; align-self:stretch; background: var(--border-subtle); margin: 0 4px; }
+  .lab { font-size: 11px; letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--text-muted); font-weight:700; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+  <div class="lab">Radii &nbsp;·&nbsp; Shadows</div>
+  <div class="group">
+    <div class="col">
+      <div class="box r" style="border-radius:var(--radius-sm)"><span class="tok">sm</span></div>
+      <div class="box r" style="border-radius:var(--radius-md)"><span class="tok">md</span></div>
+      <div class="box r" style="border-radius:var(--radius-lg)"><span class="tok">lg</span></div>
+      <div class="box r" style="border-radius:var(--radius-xl)"><span class="tok">xl</span></div>
+      <div class="box r" style="border-radius:var(--radius-pill);width:90px"><span class="tok">pill</span></div>
+    </div>
+    <div class="sep"></div>
+    <div class="col">
+      <div class="box" style="border-radius:var(--radius-lg);box-shadow:var(--shadow-sm)"><span class="tok">sm</span></div>
+      <div class="box" style="border-radius:var(--radius-lg);box-shadow:var(--shadow-md)"><span class="tok">md</span></div>
+      <div class="box" style="border-radius:var(--radius-lg);box-shadow:var(--shadow-lg)"><span class="tok">lg</span></div>
+      <div class="box" style="border-radius:var(--radius-lg);box-shadow:var(--shadow-xl)"><span class="tok">xl</span></div>
+    </div>
+  </div>
+</body>
+</html>

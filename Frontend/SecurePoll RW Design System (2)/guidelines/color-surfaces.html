@@ -1,0 +1,36 @@
+<!-- @dsCard group="Colors" viewport="700x220" name="Surfaces — Light & Dark" subtitle="Semantic surface, border & text tokens that flip by theme" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; padding: 0; font-family: var(--font-sans); display: grid; grid-template-columns: 1fr 1fr; }
+  .pane { padding: 20px; background: var(--bg-canvas); }
+  .pane h4 { font-family: var(--font-sans); font-size: 11px; letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--text-muted); margin: 0 0 12px; font-weight: 700; }
+  .surface { background: var(--bg-surface); border: 1px solid var(--border-default); border-radius: var(--radius-lg); padding: 14px; box-shadow: var(--shadow-sm); }
+  .surface .strong { color: var(--text-strong); font-weight: 600; font-size: 14px; }
+  .surface .muted { color: var(--text-muted); font-size: 12px; margin-top: 2px; }
+  .inset { margin-top: 10px; background: var(--bg-inset); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 8px 10px; font-family: var(--font-mono); font-size: 11px; color: var(--text-default); }
+  .dot { display:inline-block; width:8px;height:8px;border-radius:50%;background:var(--primary);margin-right:6px;vertical-align:middle; }
+</style>
+</head>
+<body>
+  <div class="pane" data-theme="light">
+    <h4>Light · daylight</h4>
+    <div class="surface">
+      <div class="strong"><span class="dot"></span>Polling Station 014</div>
+      <div class="muted">Nyarugenge · Kigali</div>
+      <div class="inset">turnout = 62.4%</div>
+    </div>
+  </div>
+  <div class="pane" data-theme="dark">
+    <h4>Dark · kiosk</h4>
+    <div class="surface">
+      <div class="strong"><span class="dot"></span>Polling Station 014</div>
+      <div class="muted">Nyarugenge · Kigali</div>
+      <div class="inset">turnout = 62.4%</div>
+    </div>
+  </div>
+</body>
+</html>
